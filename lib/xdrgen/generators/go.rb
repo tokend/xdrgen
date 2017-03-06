@@ -217,6 +217,19 @@ module Xdrgen
         end
         out.puts ")"
 
+		# render the array used to get all values
+		out.puts "var #{name enum}All = []#{name enum}{"
+        out.indent do
+
+          enum.members.each do |m|
+            out.puts "#{name enum}#{name m},"
+          end
+
+        end
+        out.puts "}"
+
+        out.break
+		
         # render the map used by xdr to decide valid values
         out.puts "var #{private_name enum}Map = map[int32]string{"
         out.indent do

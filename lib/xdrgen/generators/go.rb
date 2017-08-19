@@ -194,7 +194,7 @@ module Xdrgen
         out.indent do
 
           struct.members.each do |m|
-            out.puts "#{name m} #{reference(m.declaration.type)} #{field_tag struct, m}"
+            out.puts "#{name m} #{reference(m.declaration.type)} #{field_tag struct, m} \`json:\"#{m.name}\",omitempty\`"
           end
 
         end

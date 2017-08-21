@@ -194,7 +194,7 @@ module Xdrgen
         out.indent do
 
           struct.members.each do |m|
-            out.puts "#{name m} #{reference(m.declaration.type)} #{field_tag struct, m} \`json:\"#{m.name}\",omitempty\`"
+            out.puts "#{name m} #{reference(m.declaration.type)} #{field_tag struct, m}"
           end
 
         end
@@ -538,6 +538,7 @@ module Xdrgen
       end
 
       def field_tag(struct, field)
+        result = "`json:\"#{field.name},omitempty\""
         size = nil
 
         case field.declaration
@@ -547,7 +548,10 @@ module Xdrgen
           size = field.declaration.resolved_size unless field.declaration.fixed?
         end
 
-        return "`xdrmaxsize:\"#{size}\"`" if size.present?
+        result += " xdrmaxsize:\"#{size}\"" if size.present?
+
+        result += "`"
+        return result
       end
 
     end

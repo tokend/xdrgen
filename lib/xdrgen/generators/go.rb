@@ -541,7 +541,7 @@ module Xdrgen
         result = "`json:\"#{field.name},omitempty\""
         size = nil
 
-        if !field.respond_to? declaration
+        if !field.respond_to? :declaration
           result += "`"
           return result
         end

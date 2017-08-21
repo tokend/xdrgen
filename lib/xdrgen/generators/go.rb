@@ -267,7 +267,7 @@ module Xdrgen
 
         out.puts "type #{name union} struct{"
         out.indent do
-          out.puts "#{name union.discriminant} #{reference union.discriminant.type}"
+          out.puts "#{name union.discriminant} #{reference union.discriminant.type}  #{field_tag union, union.discriminant}"
 
           union.arms.each do |arm|
             next if arm.void?

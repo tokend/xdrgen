@@ -271,7 +271,7 @@ module Xdrgen
 
           union.arms.each do |arm|
             next if arm.void?
-            out.puts "#{name arm} *#{reference arm.type}"
+            out.puts "#{name arm} *#{reference arm.type} #{field_tag union, arm}"
           end
         end
         out.puts "}"

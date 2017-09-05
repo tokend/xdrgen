@@ -68,6 +68,10 @@ module Xdrgen
           func (e #{name typedef}) String() string {
             return #{name enum}(e).String()
           }
+
+          func (e #{name typedef}) MarshalJSON() ([]byte, error) {
+	          return []byte("\"" + e.String() + "\""), nil
+          }       
         EOS
 
         out.break

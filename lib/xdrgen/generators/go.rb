@@ -262,6 +262,10 @@ module Xdrgen
             name, _ := #{private_name enum}Map[int32(e)]
             return name
           }
+
+          func (e #{name enum}) MarshalJSON() ([]byte, error) {
+	          return []byte("\"" + e.String() + "\""), nil
+          }
         EOS
 
         out.break

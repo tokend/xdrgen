@@ -264,7 +264,7 @@ module Xdrgen
           }
 
           func (e #{name enum}) MarshalJSON() ([]byte, error) {
-	          return []byte("\"" + e.String() + "\""), nil
+	          return []byte("\\"" + e.String() + "\\""), nil
           }
         EOS
 

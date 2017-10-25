@@ -247,6 +247,19 @@ module Xdrgen
 
         out.break
 
+        # render the rev map used JSONUnmarshal
+        out.puts "var #{private_name enum}RevMap = map[string]int32{"
+        out.indent do
+
+          enum.members.each do |m|
+            out.puts "\"#{name enum}#{name m}\": #{m.value},"
+          end
+
+        end
+        out.puts "}"
+
+        out.break
+
         out.puts <<-EOS.strip_heredoc
           // ValidEnum validates a proposed value for this enum.  Implements
           // the Enum interface for #{name enum}
@@ -266,6 +279,23 @@ module Xdrgen
           func (e #{name enum}) MarshalJSON() ([]byte, error) {
 	          return []byte("\\"" + e.String() + "\\""), nil
           }
+
+          func (e *#{name enum}) UnmarshalJSON(d []byte) error {
+            var raw string
+            err := json.Unmarshal(d, &raw)
+            if err != nil {
+              return err
+            }
+
+            value, ok := #{private_name enum}RevMap[raw]
+            if !ok {
+              return fmt.Errorf("unexpected json value: %s", raw)
+            }
+
+            *e = #{name enum}(value)
+            return nil
+          }
+
         EOS
 
         out.break

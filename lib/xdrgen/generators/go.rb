@@ -368,6 +368,7 @@ module Xdrgen
           import (
             "io"
             "fmt"
+            "encoding/json"
 
             "github.com/nullstyle/go-xdr/xdr3"
           )

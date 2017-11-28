@@ -71,7 +71,7 @@ module Xdrgen
 
           func (e #{name typedef}) MarshalJSON() ([]byte, error) {
 	          return []byte("\"" + e.String() + "\""), nil
-          }       
+          }
         EOS
 
         out.break
@@ -233,13 +233,26 @@ module Xdrgen
         out.puts "}"
 
         out.break
-		
+
         # render the map used by xdr to decide valid values
         out.puts "var #{private_name enum}Map = map[int32]string{"
         out.indent do
 
           enum.members.each do |m|
             out.puts "#{m.value}: \"#{name enum}#{name m}\","
+          end
+
+        end
+        out.puts "}"
+
+        out.break
+
+        # render the map used by xdr to decide valid short values
+        out.puts "var #{private_name enum}ShortMap = map[int32]string{"
+        out.indent do
+
+          enum.members.each do |m|
+            out.puts "#{m.value}: \"#{(name m).underscore}\","
           end
 
         end
@@ -273,6 +286,11 @@ module Xdrgen
           // String returns the name of `e`
           func (e #{name enum}) String() string {
             name, _ := #{private_name enum}Map[int32(e)]
+            return name
+          }
+
+          func (e #{name enum}) ShortString() string {
+            name, _ := #{private_name enum}ShortMap[int32(e)]
             return name
           }
 
@@ -584,7 +602,7 @@ module Xdrgen
           result += "`"
           return result
         end
-        
+
         case field.declaration
         when Xdrgen::AST::Declarations::String
           size = field.declaration.resolved_size

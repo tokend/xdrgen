@@ -282,6 +282,19 @@ module Xdrgen
           }
         EOS
 
+	# method determing if enum is a bit mask
+	out.puts <<-EOS.strip_heredoc
+	  func (e #{name enum}) isFlag() bool {
+	     for i := len(#{name enum}All) - 1; i >= 0; i-- {
+		expected := #{name enum}(2) << uint64(len(#{name enum}All)-1) >> uint64(len(#{name enum}All)-i)
+		if expected != #{name enum}All[i] {
+			return false
+		}
+	      }
+	     return true
+           }
+	EOS
+
         out.puts <<-EOS.strip_heredoc
           // String returns the name of `e`
           func (e #{name enum}) String() string {
@@ -295,25 +308,38 @@ module Xdrgen
           }
 
           func (e #{name enum}) MarshalJSON() ([]byte, error) {
-	          return []byte("\\"" + e.String() + "\\""), nil
+		  if e.isFlag() {
+			// marshal as mask
+			result := flag{
+				Value: int32(e),
+			}
+			for _, value := range #{name enum}All {
+				if (value & e) == value {
+					result.Flags = append(result.Flags, flagValue{
+						Value: int32(value),
+						Name:  e.ShortString(),
+					})
+				}
+			}
+			return json.Marshal(&result)
+		} else {
+			// marshal as enum
+			result := enum{
+				Value:  int32(e),
+				String: e.ShortString(),
+			}
+			return json.Marshal(&result)
+		}
           }
 
-          func (e *#{name enum}) UnmarshalJSON(d []byte) error {
-            var raw string
-            err := json.Unmarshal(d, &raw)
-            if err != nil {
-              return err
-            }
-
-            value, ok := #{private_name enum}RevMap[raw]
-            if !ok {
-              return fmt.Errorf("unexpected json value: %s", raw)
-            }
-
-            *e = #{name enum}(value)
-            return nil
+          func (e *#{name enum}) UnmarshalJSON(data []byte) error {
+	    var t value
+	      if err := json.Unmarshal(data, &t); err != nil {
+		return err
+	      }
+	    *e = #{name enum}(t.Value)
+	    return nil
           }
-
         EOS
 
         out.break

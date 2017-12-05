@@ -317,7 +317,7 @@ module Xdrgen
 				if (value & e) == value {
 					result.Flags = append(result.Flags, flagValue{
 						Value: int32(value),
-						Name:  e.ShortString(),
+						Name:  value.ShortString(),
 					})
 				}
 			}

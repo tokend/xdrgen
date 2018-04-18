@@ -20,9 +20,11 @@ module Xdrgen
       def render_definition(defn)
         case defn
         when AST::Definitions::Enum ;
-          render_element "public enum", defn, ": Int32" do |out|
+          render_element "enum", defn, ": Int32" do |out|
             render_enum defn, out
           end
+        when AST::Definitions::Typedef ;
+          render_typedef defn
         end
       end
 
@@ -39,6 +41,17 @@ module Xdrgen
           out.unbreak
         end
         out.puts "}"
+      end
+
+      def render_typedef(element)
+        path = element.name.camelize + ".swift"
+        name = name_string element.name
+        out  = @output.open(path)
+        render_top_matter out
+        render_source_comment out, element
+
+        out.puts "typealias #{name} = #{decl_string element.declaration}"
+        out.break
       end
 
       def render_enum(enum, out)
@@ -74,6 +87,59 @@ module Xdrgen
 
         //  ===========================================================================
         EOS
+      end
+
+      def decl_string(decl)
+        case decl
+        when AST::Declarations::Opaque ;
+          "[Byte]"
+        when AST::Declarations::String ;
+          "String"
+        when AST::Declarations::Array ;
+          "[#{type_string decl.type}]"
+        when AST::Declarations::Optional ;
+          "#{type_string(decl.type)}?"
+        when AST::Declarations::Simple ;
+          type_string(decl.type)
+        else
+          raise "Unknown declaration type: #{decl.class.name}"
+        end
+      end
+
+      def type_string(type)
+        case type
+        when AST::Typespecs::Int ;
+          "Int32"
+        when AST::Typespecs::UnsignedInt ;
+          "UInt32"
+        when AST::Typespecs::Hyper ;
+          "Int64"
+        when AST::Typespecs::UnsignedHyper ;
+          "UInt64"
+        when AST::Typespecs::Float ;
+          "Float"
+        when AST::Typespecs::Double ;
+          "Double"
+        when AST::Typespecs::Quadruple ;
+          raise "cannot render quadruple in swift"
+        when AST::Typespecs::Bool ;
+          "Bool"
+        when AST::Typespecs::Opaque ;
+          "[Byte]"
+        when AST::Typespecs::Simple ;
+          name type.resolved_type
+        when AST::Concerns::NestedDefinition ;
+          name type
+        else
+          raise "Unknown typespec: #{type.class.name}"
+        end
+      end
+
+      def name(named)
+        parent = name named.parent_defn if named.is_a?(AST::Concerns::NestedDefinition)
+        result = named.name.camelize
+
+        "#{parent}#{result}"
       end
 
       def name_string(name)

@@ -20,7 +20,7 @@ module Xdrgen
             render_nested_definitions defn, out
           end
         when AST::Definitions::Enum ;
-          render_element "enum", defn, ": XDREnum, Int32" do |out|
+          render_element "enum", defn, ": Int32, XDREnum" do |out|
             render_enum defn, out
           end
         when AST::Definitions::Union ;
@@ -52,7 +52,7 @@ module Xdrgen
             out.puts "}"
           when AST::Definitions::Enum ;
             name = name ndefn
-            out.puts "enum #{name}: XDREnum, Int32 {"
+            out.puts "enum #{name}: Int32, XDREnum {"
             out.indent do
               render_enum ndefn, out
             end

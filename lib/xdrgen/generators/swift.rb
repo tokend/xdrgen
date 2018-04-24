@@ -13,12 +13,20 @@ module Xdrgen
 
       def render_definition(defn)
         case defn
+        when AST::Definitions::Struct ;
+          render_element "struct", defn, ": XDRStruct" do |out|
+            render_struct defn, out
+            # render_nested_definitions defn, out
+          end
         when AST::Definitions::Enum ;
           render_element "enum", defn, ": XDREnum, Int32" do |out|
             render_enum defn, out
           end
         when AST::Definitions::Typedef ;
-          render_typedef defn
+          name = name_string defn.name
+          render_file defn, name do |out|
+            render_typedef defn, out
+          end
         end
       end
 
@@ -46,37 +54,25 @@ module Xdrgen
         end
       end
 
-      def render_typedef(element)
-        name = name_string element.name
-        case element.declaration
-        when AST::Declarations::Opaque ;
-          if element.declaration.fixed?
-            render_fixed_size_opaque_type element
-            render_file element, name do |out|
-              out.puts "typealias #{name} = XDRDataFixed#{element.declaration.size}"
-            end
-          else
-            render_file element, name do |out|
-              out.puts "typealias #{name} = #{decl_string element.declaration}"
-            end
-          end
-        else
-          render_file element, name do |out|
-            out.puts "typealias #{name} = #{decl_string element.declaration}"
-          end
+      def render_struct(struct, out)
+        struct.members.each do |m|
+          out.puts "var #{m.name}: #{decl_string(m.declaration)}"
         end
-
       end
 
-      def render_fixed_size_opaque_type(element)
-        name = "XDRDataFixed#{element.declaration.size}"
+      def render_typedef(typedef, out)
+        out.puts "typealias #{name_string typedef.name} = #{decl_string typedef.declaration}"
+      end
+
+      def render_fixed_size_opaque_type(decl)
+        name = "XDRDataFixed#{decl.size}"
         unless @already_rendered.include? name
           @already_rendered << name
 
-          render_file element, name do |out|
+          render_file decl, name do |out|
             out.puts <<-EOS.strip_heredoc
             struct #{name}: XDRDataFixed {
-              static var length: Int { return #{element.declaration.size} }
+              static var length: Int { return #{decl.size} }
 
               var wrapped: Data
             
@@ -128,7 +124,7 @@ module Xdrgen
         case decl
         when AST::Declarations::Opaque ;
           if decl.fixed?
-            render_fixed_size_opaque_type element
+            render_fixed_size_opaque_type decl
             "XDRDataFixed#{decl.size}"
           else
             "Data"

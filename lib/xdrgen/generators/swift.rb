@@ -16,11 +16,16 @@ module Xdrgen
         when AST::Definitions::Struct ;
           render_element "struct", defn, ": XDRStruct" do |out|
             render_struct defn, out
-            # render_nested_definitions defn, out
+            render_nested_definitions defn, out
           end
         when AST::Definitions::Enum ;
           render_element "enum", defn, ": XDREnum, Int32" do |out|
             render_enum defn, out
+          end
+        when AST::Definitions::Union ;
+          render_element "enum", defn, ": XDRDiscriminatedUnion" do |out|
+            render_union defn, out
+            render_nested_definitions defn, out
           end
         when AST::Definitions::Typedef ;
           name = name_string defn.name
@@ -44,9 +49,17 @@ module Xdrgen
             out.puts "}"
           when AST::Definitions::Enum ;
             name = name ndefn
-            out.puts "enum #{name} {"
+            out.puts "enum #{name}: XDREnum, Int32 {"
             out.indent do
               render_enum ndefn, out
+            end
+            out.puts "}"
+          when AST::Definitions::Union ;
+            name = name ndefn
+            out.puts "enum #{name}: XDRDiscriminatedUnion {"
+            out.indent do
+              render_union ndefn, out
+              render_nested_definitions ndefn, out
             end
             out.puts "}"
           when AST::Definitions::Typedef ;
@@ -83,7 +96,67 @@ module Xdrgen
 
       def render_struct(struct, out)
         struct.members.each do |m|
-          out.puts "var #{m.name}: #{decl_string(m.declaration)}"
+          out.puts "var #{m.name}: #{decl_string m.declaration}"
+        end
+      end
+
+      def render_union(union, out)
+        foreach_union_case union do |union_case, arm|
+          out.puts "case #{union_case_name union_case}(#{decl_string arm.declaration})"
+        end
+
+        out.break
+
+        out.puts <<-EOS.strip_heredoc
+        var discriminant: Int32 {
+          switch self {
+        EOS
+        foreach_union_case union do |union_case, arm|
+          out.puts "  case #{union_case_name union_case}: return #{type_string union.discriminant.type}.#{union_case_name union_case}.rawValue"
+        end
+        out.puts <<-EOS.strip_heredoc
+          }
+        }
+        EOS
+
+        out.break
+
+        out.puts <<-EOS.strip_heredoc
+        func toXDR() -> Data {
+          var xdr = Data()
+                
+          xdr.append(self.discriminant.xdr)
+                
+          switch self {
+        EOS
+        foreach_union_case union do |union_case, arm|
+          if arm.void?
+            out.puts "  case #{union_case_name union_case}(): xdr.append(Data())"
+          else
+            out.puts "  case #{union_case_name union_case}(let data): xdr.append(data.xdr)"
+          end
+        end
+        out.puts <<-EOS.strip_heredoc
+          }
+        }
+        EOS
+      end
+
+      def foreach_union_case(union)
+        union.arms.each do |arm|
+          next if arm.is_a?(AST::Definitions::UnionDefaultArm)
+
+          arm.cases.each do |union_case|
+            yield union_case, arm
+          end
+        end
+      end
+
+      def union_case_name(union_case)
+        if union_case.value.is_a?(AST::Identifier)
+          enum_case_name union_case.value.name
+        else
+          enum_case_name union_case.value.value
         end
       end
 
@@ -149,6 +222,8 @@ module Xdrgen
 
       def decl_string(decl)
         case decl
+        when AST::Declarations::Void
+          ""
         when AST::Declarations::Opaque ;
           if decl.fixed?
             render_fixed_size_opaque_type decl

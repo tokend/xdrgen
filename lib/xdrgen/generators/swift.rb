@@ -2,14 +2,7 @@ module Xdrgen
   module Generators
     class Swift < Xdrgen::Generators::Base
       def generate
-        render_lib
         render_definitions(@top)
-      end
-
-      def render_lib
-        template = IO.read(__dir__ + "/swift/xdr.erb")
-        result = ERB.new(template).result binding
-        @output.write  "Utils/Xdr.swift", result
       end
 
       def render_definitions(node)
@@ -20,7 +13,7 @@ module Xdrgen
       def render_definition(defn)
         case defn
         when AST::Definitions::Enum ;
-          render_element "enum", defn, ": Int32" do |out|
+          render_element "enum", defn, ": XDREnum, Int32" do |out|
             render_enum defn, out
           end
         when AST::Definitions::Typedef ;
@@ -92,7 +85,7 @@ module Xdrgen
       def decl_string(decl)
         case decl
         when AST::Declarations::Opaque ;
-          "[Byte]"
+          "Data"
         when AST::Declarations::String ;
           "String"
         when AST::Declarations::Array ;
@@ -117,15 +110,15 @@ module Xdrgen
         when AST::Typespecs::UnsignedHyper ;
           "UInt64"
         when AST::Typespecs::Float ;
-          "Float"
+          raise "cannot render Float in Swift"
         when AST::Typespecs::Double ;
-          "Double"
+          raise "cannot render Double in Swift"
         when AST::Typespecs::Quadruple ;
-          raise "cannot render quadruple in swift"
+          raise "cannot render Quadruple in Swift"
         when AST::Typespecs::Bool ;
           "Bool"
         when AST::Typespecs::Opaque ;
-          "[Byte]"
+          "Data"
         when AST::Typespecs::Simple ;
           name type.resolved_type
         when AST::Concerns::NestedDefinition ;

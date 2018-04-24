@@ -92,7 +92,7 @@ module Xdrgen
       def render_enum(enum, out)
         out.balance_after /,[\s]*/ do
           enum.members.each do |em|
-            out.puts "case #{em.name} = #{em.value}"
+            out.puts "case #{enum_case_name em.name} = #{em.value}"
           end
         end
         out.break
@@ -175,6 +175,10 @@ module Xdrgen
         result = named.name.camelize
 
         "#{parent}#{result}"
+      end
+
+      def enum_case_name(name)
+        name.downcase.camelize :lower
       end
 
       def name_string(name)

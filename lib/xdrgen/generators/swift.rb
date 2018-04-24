@@ -30,6 +30,33 @@ module Xdrgen
         end
       end
 
+      def render_nested_definitions(defn, out)
+        return unless defn.respond_to? :nested_definitions
+        defn.nested_definitions.each{|ndefn|
+          case ndefn
+          when AST::Definitions::Struct ;
+            name = name ndefn
+            out.puts "struct #{name} {"
+            out.indent do
+              render_struct ndefn, out
+              render_nested_definitions ndefn , out
+            end
+            out.puts "}"
+          when AST::Definitions::Enum ;
+            name = name ndefn
+            out.puts "enum #{name} {"
+            out.indent do
+              render_enum ndefn, out
+            end
+            out.puts "}"
+          when AST::Definitions::Typedef ;
+            out.indent do
+              render_typedef ndefn, out
+            end
+          end
+        }
+      end
+
       def render_file(element, name)
         path = name + ".swift"
         out  = @output.open(path)

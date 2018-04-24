@@ -2,7 +2,7 @@ module Xdrgen
   module Generators
     class Swift < Xdrgen::Generators::Base
       def generate
-        @already_rendered = []
+        @already_rendered = ["Int64", "Int32"]
         render_definitions(@top)
       end
 
@@ -14,25 +14,27 @@ module Xdrgen
       def render_definition(defn)
         case defn
         when AST::Definitions::Struct ;
-          render_element "struct", defn, ": XDRStruct" do |out|
+          render_element "public struct", defn, ": XDRStruct" do |out|
             render_struct defn, out
             out.break
             render_nested_definitions defn, out
           end
         when AST::Definitions::Enum ;
-          render_element "enum", defn, ": Int32, XDREnum" do |out|
+          render_element "public enum", defn, ": Int32, XDREnum" do |out|
             render_enum defn, out
           end
         when AST::Definitions::Union ;
-          render_element "enum", defn, ": XDRDiscriminatedUnion" do |out|
+          render_element "public enum", defn, ": XDRDiscriminatedUnion" do |out|
             render_union defn, out
             out.break
             render_nested_definitions defn, out
           end
         when AST::Definitions::Typedef ;
           name = name_string defn.name
-          render_file defn, name do |out|
-            render_typedef defn, out
+          unless @already_rendered.include? name
+            render_file defn, name do |out|
+              render_typedef defn, out
+            end
           end
         end
       end
@@ -43,7 +45,7 @@ module Xdrgen
           case ndefn
           when AST::Definitions::Struct ;
             name = name ndefn
-            out.puts "struct #{name} {"
+            out.puts "public struct #{name}: XDRStruct {"
             out.indent do
               render_struct ndefn, out
               out.break
@@ -52,14 +54,14 @@ module Xdrgen
             out.puts "}"
           when AST::Definitions::Enum ;
             name = name ndefn
-            out.puts "enum #{name}: Int32, XDREnum {"
+            out.puts "public enum #{name}: Int32, XDREnum {"
             out.indent do
               render_enum ndefn, out
             end
             out.puts "}"
           when AST::Definitions::Union ;
             name = name ndefn
-            out.puts "enum #{name}: XDRDiscriminatedUnion {"
+            out.puts "public enum #{name}: XDRDiscriminatedUnion {"
             out.indent do
               render_union ndefn, out
               out.break
@@ -86,7 +88,7 @@ module Xdrgen
       def render_element(type, element, post_name="")
         name = name_string element.name
         render_file element, name do |out|
-          out.puts "#{type} #{name} #{post_name} {"
+          out.puts "#{type} #{name}#{post_name} {"
           out.indent do
             yield out
             out.unbreak
@@ -97,7 +99,7 @@ module Xdrgen
 
       def render_struct(struct, out)
         struct.members.each do |m|
-          out.puts "var #{m.name}: #{decl_string m.declaration}"
+          out.puts "public var #{m.name}: #{decl_string m.declaration}"
         end
       end
 
@@ -109,12 +111,12 @@ module Xdrgen
         out.break
 
         out.puts <<-EOS.strip_heredoc
-        var discriminant: Int32 {
+        public var discriminant: Int32 {
           switch self {
         EOS
         out.indent do
           foreach_union_case union do |union_case, arm|
-            out.puts "case #{union_case_name union_case}: return #{type_string union.discriminant.type}.#{union_case_name union_case}.rawValue"
+            out.puts "case .#{union_case_name union_case}: return #{type_string union.discriminant.type}.#{union_case_name union_case}.rawValue"
           end
         end
         out.puts <<-EOS.strip_heredoc
@@ -125,7 +127,7 @@ module Xdrgen
         out.break
 
         out.puts <<-EOS.strip_heredoc
-        func toXDR() -> Data {
+        public func toXDR() -> Data {
           var xdr = Data()
                 
           xdr.append(self.discriminant.xdr)
@@ -135,14 +137,16 @@ module Xdrgen
         out.indent do
           foreach_union_case union do |union_case, arm|
             if arm.void?
-              out.puts "case #{union_case_name union_case}(): xdr.append(Data())"
+              out.puts "case .#{union_case_name union_case}(): xdr.append(Data())"
             else
-              out.puts "case #{union_case_name union_case}(let data): xdr.append(data.xdr)"
+              out.puts "case .#{union_case_name union_case}(let data): xdr.append(data.xdr)"
             end
           end
         end
         out.puts <<-EOS.strip_heredoc
           }
+
+          return xdr
         }
         EOS
       end
@@ -166,7 +170,7 @@ module Xdrgen
       end
 
       def render_typedef(typedef, out)
-        out.puts "typealias #{name_string typedef.name} = #{decl_string typedef.declaration}"
+        out.puts "public typealias #{name_string typedef.name} = #{decl_string typedef.declaration}"
       end
 
       def render_fixed_size_opaque_type(decl)
@@ -176,12 +180,12 @@ module Xdrgen
 
           render_file decl, name do |out|
             out.puts <<-EOS.strip_heredoc
-            struct #{name}: XDRDataFixed {
-              static var length: Int { return #{decl.size} }
+            public struct #{name}: XDRDataFixed {
+              public static var length: Int { return #{decl.size} }
 
-              var wrapped: Data
+              public var wrapped: Data
             
-              init() {
+              public init() {
                   self.wrapped = Data()
               }
             }
@@ -191,10 +195,8 @@ module Xdrgen
       end
 
       def render_enum(enum, out)
-        out.balance_after /,[\s]*/ do
-          enum.members.each do |em|
-            out.puts "case #{enum_case_name em.name} = #{em.value}"
-          end
+        enum.members.each do |em|
+          out.puts "case #{enum_case_name em.name} = #{em.value}"
         end
         out.break
       end

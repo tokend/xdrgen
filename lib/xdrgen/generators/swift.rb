@@ -127,11 +127,20 @@ module Xdrgen
       def decl_string(decl)
         case decl
         when AST::Declarations::Opaque ;
-          "Data"
+          if decl.fixed?
+            render_fixed_size_opaque_type element
+            "XDRDataFixed#{decl.size}"
+          else
+            "Data"
+          end
         when AST::Declarations::String ;
           "String"
         when AST::Declarations::Array ;
-          "[#{type_string decl.type}]"
+          if decl.fixed?
+            "XDRArrayFixed<#{type_string decl.type}>"
+          else
+            "[#{type_string decl.type}]"
+          end
         when AST::Declarations::Optional ;
           "#{type_string(decl.type)}?"
         when AST::Declarations::Simple ;

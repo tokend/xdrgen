@@ -2,6 +2,7 @@ module Xdrgen
   module Generators
     class Swift < Xdrgen::Generators::Base
       def generate
+        @already_rendered = []
         render_definitions(@top)
       end
 
@@ -21,30 +22,71 @@ module Xdrgen
         end
       end
 
-      def render_element(type, element, post_name="")
-        path = element.name.camelize + ".swift"
-        name = name_string element.name
+      def render_file(element, name)
+        path = name + ".swift"
         out  = @output.open(path)
         render_top_matter out
         render_source_comment out, element
 
-        out.puts "#{type} #{name} #{post_name} {"
         out.indent do
           yield out
           out.unbreak
         end
-        out.puts "}"
+      end
+
+      def render_element(type, element, post_name="")
+        name = name_string element.name
+        render_file element, name do |out|
+          out.puts "#{type} #{name} #{post_name} {"
+          out.indent do
+            yield out
+            out.unbreak
+          end
+          out.puts "}"
+        end
       end
 
       def render_typedef(element)
-        path = element.name.camelize + ".swift"
         name = name_string element.name
-        out  = @output.open(path)
-        render_top_matter out
-        render_source_comment out, element
+        case element.declaration
+        when AST::Declarations::Opaque ;
+          if element.declaration.fixed?
+            render_fixed_size_opaque_type element
+            render_file element, name do |out|
+              out.puts "typealias #{name} = XDRDataFixed#{element.declaration.size}"
+            end
+          else
+            render_file element, name do |out|
+              out.puts "typealias #{name} = #{decl_string element.declaration}"
+            end
+          end
+        else
+          render_file element, name do |out|
+            out.puts "typealias #{name} = #{decl_string element.declaration}"
+          end
+        end
 
-        out.puts "typealias #{name} = #{decl_string element.declaration}"
-        out.break
+      end
+
+      def render_fixed_size_opaque_type(element)
+        name = "XDRDataFixed#{element.declaration.size}"
+        unless @already_rendered.include? name
+          @already_rendered << name
+
+          render_file element, name do |out|
+            out.puts <<-EOS.strip_heredoc
+            struct #{name}: XDRDataFixed {
+              static var length: Int { return #{element.declaration.size} }
+
+              var wrapped: Data
+            
+              init() {
+                  self.wrapped = Data()
+              }
+            }
+            EOS
+          end
+        end
       end
 
       def render_enum(enum, out)

@@ -16,6 +16,7 @@ module Xdrgen
         when AST::Definitions::Struct ;
           render_element "struct", defn, ": XDRStruct" do |out|
             render_struct defn, out
+            out.break
             render_nested_definitions defn, out
           end
         when AST::Definitions::Enum ;
@@ -25,6 +26,7 @@ module Xdrgen
         when AST::Definitions::Union ;
           render_element "enum", defn, ": XDRDiscriminatedUnion" do |out|
             render_union defn, out
+            out.break
             render_nested_definitions defn, out
           end
         when AST::Definitions::Typedef ;
@@ -44,6 +46,7 @@ module Xdrgen
             out.puts "struct #{name} {"
             out.indent do
               render_struct ndefn, out
+              out.break
               render_nested_definitions ndefn , out
             end
             out.puts "}"
@@ -59,6 +62,7 @@ module Xdrgen
             out.puts "enum #{name}: XDRDiscriminatedUnion {"
             out.indent do
               render_union ndefn, out
+              out.break
               render_nested_definitions ndefn, out
             end
             out.puts "}"
@@ -76,10 +80,7 @@ module Xdrgen
         render_top_matter out
         render_source_comment out, element
 
-        out.indent do
-          yield out
-          out.unbreak
-        end
+        yield out
       end
 
       def render_element(type, element, post_name="")
@@ -111,8 +112,10 @@ module Xdrgen
         var discriminant: Int32 {
           switch self {
         EOS
-        foreach_union_case union do |union_case, arm|
-          out.puts "  case #{union_case_name union_case}: return #{type_string union.discriminant.type}.#{union_case_name union_case}.rawValue"
+        out.indent do
+          foreach_union_case union do |union_case, arm|
+            out.puts "case #{union_case_name union_case}: return #{type_string union.discriminant.type}.#{union_case_name union_case}.rawValue"
+          end
         end
         out.puts <<-EOS.strip_heredoc
           }
@@ -129,11 +132,13 @@ module Xdrgen
                 
           switch self {
         EOS
-        foreach_union_case union do |union_case, arm|
-          if arm.void?
-            out.puts "  case #{union_case_name union_case}(): xdr.append(Data())"
-          else
-            out.puts "  case #{union_case_name union_case}(let data): xdr.append(data.xdr)"
+        out.indent do
+          foreach_union_case union do |union_case, arm|
+            if arm.void?
+              out.puts "case #{union_case_name union_case}(): xdr.append(Data())"
+            else
+              out.puts "case #{union_case_name union_case}(let data): xdr.append(data.xdr)"
+            end
           end
         end
         out.puts <<-EOS.strip_heredoc

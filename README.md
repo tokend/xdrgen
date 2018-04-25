@@ -21,6 +21,8 @@ Xdrgen presently supports three output languages:  ruby, javacript, and golang:
 - ruby: complete support
 - javascript: complete support
 - golang: currently using a fork of go-xdr, but has complete support
+- java
+- swift
 
 Testing is _very_ sparse, but will improve over time.
 

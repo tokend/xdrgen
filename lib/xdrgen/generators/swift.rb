@@ -3,43 +3,46 @@ module Xdrgen
     class Swift < Xdrgen::Generators::Base
       def generate
         @already_rendered = ["Int64", "Int32"]
-        render_definitions(@top)
+
+        path = "XDRTypes.swift"
+        @out = @output.open path
+        render_top_matter @out
+
+        render_definitions @top
       end
 
       def render_definitions(node)
-        node.namespaces.each{|n| render_definitions n }
-        node.definitions.each(&method(:render_definition))
+        node.namespaces.each { |n| render_definitions n }
+        node.definitions.each { |n| render_definition n }
       end
 
       def render_definition(defn)
         case defn
         when AST::Definitions::Struct ;
-          render_element "public struct", defn, ": XDRStruct" do |out|
-            render_struct defn, out
-            out.break
-            render_nested_definitions defn, out
+          render_element "public struct", defn, ": XDRStruct" do
+            render_struct defn
+            @out.break
+            render_nested_definitions defn
           end
         when AST::Definitions::Enum ;
-          render_element "public enum", defn, ": Int32, XDREnum" do |out|
-            render_enum defn, out
+          render_element "public enum", defn, ": Int32, XDREnum" do
+            render_enum defn
           end
         when AST::Definitions::Union ;
-          render_element "public enum", defn, ": XDRDiscriminatedUnion" do |out|
-            render_union defn, out
-            out.break
-            render_nested_definitions defn, out
+          render_element "public enum", defn, ": XDRDiscriminatedUnion" do
+            render_union defn
+            @out.break
+            render_nested_definitions defn
           end
         when AST::Definitions::Typedef ;
-          name = name_string defn.name
-          unless @already_rendered.include? name
-            render_file defn, name do |out|
-              render_typedef defn, out
-            end
-          end
+          render_typedef defn
+          @out.break
         end
       end
 
-      def render_nested_definitions(defn, out)
+      def render_nested_definitions(defn)
+        out = @out
+
         return unless defn.respond_to? :nested_definitions
         defn.nested_definitions.each{|ndefn|
           case ndefn
@@ -47,63 +50,61 @@ module Xdrgen
             name = name ndefn
             out.puts "public struct #{name}: XDRStruct {"
             out.indent do
-              render_struct ndefn, out
+              render_struct ndefn
               out.break
-              render_nested_definitions ndefn , out
+              render_nested_definitions ndefn
             end
             out.puts "}"
           when AST::Definitions::Enum ;
             name = name ndefn
             out.puts "public enum #{name}: Int32, XDREnum {"
             out.indent do
-              render_enum ndefn, out
+              render_enum ndefn
             end
             out.puts "}"
           when AST::Definitions::Union ;
             name = name ndefn
             out.puts "public enum #{name}: XDRDiscriminatedUnion {"
             out.indent do
-              render_union ndefn, out
+              render_union ndefn
               out.break
-              render_nested_definitions ndefn, out
+              render_nested_definitions ndefn
             end
             out.puts "}"
           when AST::Definitions::Typedef ;
             out.indent do
-              render_typedef ndefn, out
+              render_typedef ndefn
             end
           end
         }
       end
 
-      def render_file(element, name)
-        path = name + ".swift"
-        out  = @output.open(path)
-        render_top_matter out
-        render_source_comment out, element
-
-        yield out
-      end
-
       def render_element(type, element, post_name="")
+        out = @out
+
         name = name_string element.name
-        render_file element, name do |out|
-          out.puts "#{type} #{name}#{post_name} {"
-          out.indent do
-            yield out
-            out.unbreak
-          end
-          out.puts "}"
+        render_source_comment element
+
+        out.puts "#{type} #{name}#{post_name} {"
+        out.indent do
+          yield out
+          out.unbreak
         end
+        out.puts "}"
+        @out.break
       end
 
-      def render_struct(struct, out)
+      def render_struct(struct)
+        out = @out
+
         struct.members.each do |m|
           out.puts "public var #{m.name}: #{decl_string m.declaration}"
         end
       end
 
-      def render_union(union, out)
+      def render_union(union)
+        out = @out
+
         foreach_union_case union do |union_case, arm|
           out.puts "case #{union_case_name union_case}(#{decl_string arm.declaration})"
         end
@@ -169,32 +170,43 @@ module Xdrgen
         end
       end
 
-      def render_typedef(typedef, out)
-        out.puts "public typealias #{name_string typedef.name} = #{decl_string typedef.declaration}"
+      def render_typedef(typedef)
+        out = @out
+
+        render_source_comment typedef
+
+        name = name_string typedef.name
+        unless @already_rendered.include? name
+          out.puts "public typealias #{name} = #{decl_string typedef.declaration}"
+        end
       end
 
       def render_fixed_size_opaque_type(decl)
         name = "XDRDataFixed#{decl.size}"
+
         unless @already_rendered.include? name
           @already_rendered << name
 
-          render_file decl, name do |out|
-            out.puts <<-EOS.strip_heredoc
-            public struct #{name}: XDRDataFixed {
-              public static var length: Int { return #{decl.size} }
+          out = @output.open "#{name}.swift"
+          render_top_matter out
+          out.puts <<-EOS.strip_heredoc
+          /// Fixed length byte array 
+          public struct #{name}: XDRDataFixed {
+            public static var length: Int { return #{decl.size} }
 
-              public var wrapped: Data
-            
-              public init() {
-                  self.wrapped = Data()
-              }
+            public var wrapped: Data
+          
+            public init() {
+                self.wrapped = Data()
             }
-            EOS
-          end
+          }
+          EOS
         end
       end
 
-      def render_enum(enum, out)
+      def render_enum(enum)
+        out = @out
+
         enum.members.each do |em|
           out.puts "case #{enum_case_name em.name} = #{em.value}"
         end
@@ -211,7 +223,9 @@ module Xdrgen
         out.break
       end
 
-      def render_source_comment(out, defn)
+      def render_source_comment(defn)
+        out = @out
+
         return if defn.is_a?(AST::Definitions::Namespace)
 
         out.puts <<-EOS.strip_heredoc

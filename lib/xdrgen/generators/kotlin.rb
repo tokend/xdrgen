@@ -263,7 +263,7 @@ module Xdrgen
       end
 
       def render_fixed_size_opaque_type(decl)
-        name = "XDRByteArrayFixed#{decl.size}"
+        name = "XdrByteArrayFixed#{decl.size}"
 
         unless @already_rendered.include? name
           @already_rendered << name

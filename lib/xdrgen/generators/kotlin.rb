@@ -195,7 +195,7 @@ module Xdrgen
           out.puts "if (this.#{element.name} != null) {"
           out.indent do
             out.puts "true.toXdr(stream)"
-            out.puts "this.#{element.name}.toXdr(stream)"
+            out.puts "this.#{element.name}?.toXdr(stream)"
           end
           out.puts <<-EOS.strip_heredoc
           } else {

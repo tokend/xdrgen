@@ -81,7 +81,7 @@ module Xdrgen
           out.puts "override fun toXdr(stream: XdrDataOutputStream) {"
           out.indent do
             struct.members.each do |m|
-              render_element_encode m
+              render_element_encode m, m.name
             end
           end
           out.puts "}"
@@ -146,7 +146,7 @@ module Xdrgen
               super.toXdr(stream)
             EOS
             out.indent do
-              render_element_encode arm
+              render_element_encode arm, arm.name
             end
             out.puts "}"
           end
@@ -185,28 +185,38 @@ module Xdrgen
 
         unless @already_rendered.include? name
           out.puts "public typealias #{name} = #{decl_string typedef.declaration}"
+
+          case typedef.declaration
+          when AST::Declarations::Array ;
+            out.break
+            out.puts "fun #{name}.toXdr(stream: XdrDataOutputStream) {"
+            out.indent do
+              render_element_encode typedef, "this"
+            end
+            out.puts "}"
+          end
         end
       end
 
-      def render_element_encode(element)
+      def render_element_encode(element, name)
         out = @out
 
         if element.type.sub_type == :optional
-          out.puts "if (this.#{element.name} != null) {"
+          out.puts "if (#{name} != null) {"
           out.indent do
             out.puts "true.toXdr(stream)"
             case element.declaration
             when AST::Declarations::Array ;
               unless element.declaration.fixed?
-                out.puts "this.#{element.name}?.size.toXdr(stream)"
+                out.puts "#{name}?.size.toXdr(stream)"
               end
               out.puts <<-EOS.strip_heredoc
-              this.#{element.name}?.forEach {
+              #{name}?.forEach {
                 it.toXdr(stream)
               }
               EOS
             else
-              out.puts "this.#{element.name}?.toXdr(stream)"
+              out.puts "#{name}?.toXdr(stream)"
             end
           end
           out.puts <<-EOS.strip_heredoc
@@ -218,15 +228,15 @@ module Xdrgen
           case element.declaration
           when AST::Declarations::Array ;
             unless element.declaration.fixed?
-              out.puts "this.#{element.name}.size.toXdr(stream)"
+              out.puts "#{name}.size.toXdr(stream)"
             end
             out.puts <<-EOS.strip_heredoc
-              this.#{element.name}.forEach {
+              #{name}.forEach {
                 it.toXdr(stream)
               }
             EOS
           else
-            out.puts "this.#{element.name}.toXdr(stream)"
+            out.puts "#{name}.toXdr(stream)"
           end
         end
 

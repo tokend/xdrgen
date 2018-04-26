@@ -23,6 +23,10 @@ module Xdrgen
           render_element defn do
             render_enum defn
           end
+        when AST::Definitions::Union ;
+          render_element defn do
+            render_union defn
+          end
         when AST::Definitions::Typedef ;
           render_element defn do
             render_typedef defn
@@ -57,6 +61,66 @@ module Xdrgen
         out.puts "}"
       end
 
+      def render_union(union)
+        out = @out
+
+        out.puts "abstract class #{name_string union.name}(val discriminant: #{type_string union.discriminant.type}): XdrEncodable {"
+        out.indent do
+          out.puts <<-EOS.strip_heredoc
+          override fun toXdr(stream: XdrDataOutputStream) {
+              discriminant.toXdr(stream)
+          }
+          EOS
+          foreach_union_case union do |union_case, arm|
+            render_union_case union_case, arm, union
+          end
+        end
+        out.puts "}"
+      end
+
+      def render_union_case(union_case, arm, union)
+        out = @out
+
+        out.puts "public class #{union_case_name union_case}#{union_case_data arm}: #{name_string union.name}(#{type_string union.discriminant.type}.#{union_case_name union_case})#{arm.void? ? "" : " {"}"
+        unless arm.void?
+          out.indent do
+            out.puts <<-EOS.strip_heredoc
+            override fun toXdr(stream: XdrDataOutputStream) {
+              super.toXdr(stream)
+            EOS
+            render_element_encode arm
+            out.puts "}"
+          end
+          out.puts "}"
+        end
+      end
+
+      def union_case_data(arm)
+        if arm.void?
+          ""
+        else
+          "(var value: #{decl_string arm.declaration})"
+        end
+      end
+
+      def foreach_union_case(union)
+        union.arms.each do |arm|
+          next if arm.is_a?(AST::Definitions::UnionDefaultArm)
+
+          arm.cases.each do |union_case|
+            yield union_case, arm
+          end
+        end
+      end
+
+      def union_case_name(union_case)
+        if union_case.value.is_a?(AST::Identifier)
+          enum_case_name union_case.value.name
+        else
+          enum_case_name union_case.value.value
+        end
+      end
+
       def render_typedef(typedef)
         out = @out
 
@@ -64,6 +128,26 @@ module Xdrgen
         unless @already_rendered.include? name
           out.puts "public typealias #{name} = #{decl_string typedef.declaration}"
         end
+      end
+
+      def render_element_encode(element)
+        out = @out
+
+        if element.type.sub_type == :optional
+          out.puts "if (this.#{element.name} != null) {"
+          out.indent do
+            out.puts "true.toXdr(stream)"
+            out.puts "this.#{element.name}.toXdr(stream)"
+          end
+          out.puts <<-EOS.strip_heredoc
+          } else {
+            false.toXdr(stream)
+          }
+          EOS
+        else
+          out.puts "this.#{element.name}.toXdr(stream)"
+        end
+
       end
 
       def render_top_matter(out)
@@ -116,8 +200,6 @@ module Xdrgen
 
       def decl_string(decl)
         case decl
-        when AST::Declarations::Void
-          ""
         when AST::Declarations::Opaque ;
           if decl.fixed?
             render_fixed_size_opaque_type decl

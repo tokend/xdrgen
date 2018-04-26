@@ -3,8 +3,9 @@ module Xdrgen
     class Swift < Xdrgen::Generators::Base
       def generate
         @already_rendered = ["Int64", "Int32"]
+        @file_extension = "swift"
 
-        path = "XDRTypes.swift"
+        path = "XDRTypes.#{@file_extension}"
         @out = @output.open path
         render_top_matter @out
 
@@ -187,7 +188,7 @@ module Xdrgen
         unless @already_rendered.include? name
           @already_rendered << name
 
-          out = @output.open "#{name}.swift"
+          out = @output.open "#{name}.#{@file_extension}"
           render_top_matter out
           out.puts <<-EOS.strip_heredoc
           /// Fixed length byte array 

@@ -38,6 +38,24 @@ module Xdrgen
         end
       end
 
+      def render_nested_definitions(defn)
+        out = @out
+
+        return unless defn.respond_to? :nested_definitions
+        defn.nested_definitions.each { |ndefn|
+          case ndefn
+          when AST::Definitions::Struct ;
+            render_struct ndefn
+          when AST::Definitions::Enum ;
+            render_enum ndefn
+          when AST::Definitions::Union ;
+            render_union ndefn
+          when AST::Definitions::Typedef ;
+            render_typedef ndefn
+          end
+        }
+      end
+
       def render_element(defn)
         out = @out
 
@@ -65,6 +83,9 @@ module Xdrgen
             end
           end
           out.puts "}"
+          out.break
+
+          render_nested_definitions struct
         end
 
         out.unbreak
@@ -103,21 +124,28 @@ module Xdrgen
           foreach_union_case union do |union_case, arm|
             render_union_case union_case, arm, union
           end
+          out.break
+
+          render_nested_definitions union
         end
+        out.unbreak
         out.puts "}"
       end
 
       def render_union_case(union_case, arm, union)
         out = @out
 
-        out.puts "public class #{name_string union_case_name union_case}#{union_case_data arm}: #{name_string union.name}(#{type_string union.discriminant.type}.#{enum_case_name union_case_name union_case})#{arm.void? ? "" : " {"}"
+        out.break
+        out.puts "public class #{name_string union_case_name(union_case).downcase}#{union_case_data arm}: #{name_string union.name}(#{type_string union.discriminant.type}.#{enum_case_name union_case_name union_case})#{arm.void? ? "" : " {"}"
         unless arm.void?
           out.indent do
             out.puts <<-EOS.strip_heredoc
             override fun toXdr(stream: XdrDataOutputStream) {
               super.toXdr(stream)
             EOS
-            render_element_encode arm
+            out.indent do
+              render_element_encode arm
+            end
             out.puts "}"
           end
           out.puts "}"

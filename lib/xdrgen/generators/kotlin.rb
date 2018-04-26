@@ -195,7 +195,19 @@ module Xdrgen
           out.puts "if (this.#{element.name} != null) {"
           out.indent do
             out.puts "true.toXdr(stream)"
-            out.puts "this.#{element.name}?.toXdr(stream)"
+            case element.declaration
+            when AST::Declarations::Array ;
+              unless element.declaration.fixed?
+                out.puts "this.#{element.name}?.size.toXdr(stream)"
+              end
+              out.puts <<-EOS.strip_heredoc
+              this.#{element.name}?.forEach {
+                it.toXdr(stream)
+              }
+              EOS
+            else
+              out.puts "this.#{element.name}?.toXdr(stream)"
+            end
           end
           out.puts <<-EOS.strip_heredoc
           } else {
@@ -203,22 +215,21 @@ module Xdrgen
           }
           EOS
         else
-          out.puts "this.#{element.name}.toXdr(stream)"
-        end
-
-      end
-
-      def render_not_optional_element_encode(element)
-        case element.declaration
-        when AST::Declarations::Array ;
-          if element.fixed?
-            "this.#{element.name}.toXdrFixedSize(stream)"
+          case element.declaration
+          when AST::Declarations::Array ;
+            unless element.declaration.fixed?
+              out.puts "this.#{element.name}.size.toXdr(stream)"
+            end
+            out.puts <<-EOS.strip_heredoc
+              this.#{element.name}.forEach {
+                it.toXdr(stream)
+              }
+            EOS
           else
-            "this.#{element.name}.toXdr(stream)"
+            out.puts "this.#{element.name}.toXdr(stream)"
           end
-        else
-          out.puts "this.#{element.name}.toXdr(stream)"
         end
+
       end
 
       def render_top_matter(out)

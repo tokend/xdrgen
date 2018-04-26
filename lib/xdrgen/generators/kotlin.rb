@@ -3,8 +3,9 @@ module Xdrgen
     class Kotlin < Xdrgen::Generators::Base
       def generate
         @already_rendered = []
+        @file_extension = "kt"
 
-        path = "XDRTypes.kt"
+        path = "XDRTypes.#{@file_extension}"
         @out = @output.open path
         render_top_matter @out
 
@@ -48,6 +49,81 @@ module Xdrgen
 
         //  ===========================================================================
         EOS
+      end
+
+      def render_fixed_size_opaque_type(decl)
+        name = "XDRDataFixed#{decl.size}"
+
+        unless @already_rendered.include? name
+          @already_rendered << name
+
+          out = @output.open "#{name}.#{@file_extension}"
+          render_top_matter out
+          out.puts <<-EOS.strip_heredoc
+          /// Fixed length byte array 
+          class #{name}(byteArray: ByteArray): XdrFixedByteArray(byteArray) {
+              override val size: Int
+                  get() = #{decl.size}
+          }
+          EOS
+        end
+      end
+
+      def decl_string(decl)
+        case decl
+        when AST::Declarations::Void
+          ""
+        when AST::Declarations::Opaque ;
+          if decl.fixed?
+            render_fixed_size_opaque_type decl
+            "XDRDataFixed#{decl.size}"
+          else
+            "ByteArray"
+          end
+        when AST::Declarations::String ;
+          "String"
+        when AST::Declarations::Array ;
+          if decl.fixed?
+            "XDRArrayFixed<#{type_string decl.type}>"
+          else
+            "Array<#{type_string decl.type}>"
+          end
+        when AST::Declarations::Optional ;
+          "#{type_string(decl.type)}?"
+        when AST::Declarations::Simple ;
+          type_string(decl.type)
+        else
+          raise "Unknown declaration type: #{decl.class.name}"
+        end
+      end
+
+      def type_string(type)
+        case type
+        when AST::Typespecs::Int ;
+          "Int"
+        when AST::Typespecs::UnsignedInt ;
+          "Int"
+        when AST::Typespecs::Hyper ;
+          "Long"
+        when AST::Typespecs::UnsignedHyper ;
+          "Long"
+        when AST::Typespecs::Float ;
+          raise "cannot render Float in Kotlin"
+        when AST::Typespecs::Double ;
+          raise "cannot render Double in Kotlin"
+        when AST::Typespecs::Quadruple ;
+          raise "cannot render Quadruple in Kotlin"
+        when AST::Typespecs::Bool ;
+          "Boolean"
+        when AST::Typespecs::Opaque ;
+          "ByteArray"
+        when AST::Typespecs::Simple ;
+          name type.resolved_type
+        when AST::Concerns::NestedDefinition ;
+          name type
+        else
+          raise "Unknown typespec: #{type.class.name}"
+        end
       end
 
       def name(named)

@@ -18,7 +18,29 @@ module Xdrgen
       end
 
       def render_definition(defn)
+        case defn
+        when AST::Definitions::Typedef ;
+          render_element defn do
+            render_typedef defn
+          end
+        end
+      end
 
+      def render_element(defn)
+        out = @out
+
+        render_source_comment defn
+        yield
+        out.break
+      end
+
+      def render_typedef(typedef)
+        out = @out
+
+        name = name_string typedef.name
+        unless @already_rendered.include? name
+          out.puts "public typealias #{name} = #{decl_string typedef.declaration}"
+        end
       end
 
       def render_top_matter(out)

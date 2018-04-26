@@ -19,6 +19,10 @@ module Xdrgen
 
       def render_definition(defn)
         case defn
+        when AST::Definitions::Enum ;
+          render_element defn do
+            render_enum defn
+          end
         when AST::Definitions::Typedef ;
           render_element defn do
             render_typedef defn
@@ -32,6 +36,25 @@ module Xdrgen
         render_source_comment defn
         yield
         out.break
+      end
+
+      def render_enum(enum)
+        out = @out
+
+        out.puts "public enum class #{name_string enum.name}(val value: Int): XdrEncodable {"
+        out.indent do
+          enum.members.each do |em|
+            out.puts "#{em.name}(#{em.value}),"
+          end
+          out.puts ";"
+          out.break
+          out.puts <<-EOS.strip_heredoc
+          override fun toXdr(stream: XdrDataOutputStream) {
+              value.toXdr(stream)
+          }
+          EOS
+        end
+        out.puts "}"
       end
 
       def render_typedef(typedef)

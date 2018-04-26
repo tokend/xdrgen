@@ -18,40 +18,42 @@ module Xdrgen
       end
 
       def render_definition(defn)
+        name = name_string defn.name
+
         case defn
         when AST::Definitions::Struct ;
           render_element defn do
-            render_struct defn
+            render_struct defn, name
           end
         when AST::Definitions::Enum ;
           render_element defn do
-            render_enum defn
+            render_enum defn, name
           end
         when AST::Definitions::Union ;
           render_element defn do
-            render_union defn
+            render_union defn, name
           end
         when AST::Definitions::Typedef ;
           render_element defn do
-            render_typedef defn
+            render_typedef defn, name
           end
         end
       end
 
       def render_nested_definitions(defn)
-        out = @out
-
         return unless defn.respond_to? :nested_definitions
         defn.nested_definitions.each { |ndefn|
+          name = name ndefn
+
           case ndefn
           when AST::Definitions::Struct ;
-            render_struct ndefn
+            render_struct ndefn, name
           when AST::Definitions::Enum ;
-            render_enum ndefn
+            render_enum ndefn, name
           when AST::Definitions::Union ;
-            render_union ndefn
+            render_union ndefn, name
           when AST::Definitions::Typedef ;
-            render_typedef ndefn
+            render_typedef ndefn, name
           end
         }
       end
@@ -64,10 +66,10 @@ module Xdrgen
         out.break
       end
 
-      def render_struct(struct)
+      def render_struct(struct, name)
         out = @out
 
-        out.puts "public class #{name_string struct.name}("
+        out.puts "public class #{name}("
         out.indent 2 do
           struct.members.each do |m|
             out.puts "var #{m.name}: #{decl_string m.declaration}"
@@ -92,10 +94,10 @@ module Xdrgen
         out.puts "}"
       end
 
-      def render_enum(enum)
+      def render_enum(enum, name)
         out = @out
 
-        out.puts "public enum class #{name_string enum.name}(val value: Int): XdrEncodable {"
+        out.puts "public enum class #{name}(val value: Int): XdrEncodable {"
         out.indent do
           enum.members.each do |em|
             out.puts "#{enum_case_name em.name}(#{em.value}),"
@@ -111,10 +113,10 @@ module Xdrgen
         out.puts "}"
       end
 
-      def render_union(union)
+      def render_union(union, name)
         out = @out
 
-        out.puts "abstract class #{name_string union.name}(val discriminant: #{type_string union.discriminant.type}): XdrEncodable {"
+        out.puts "abstract class #{name}(val discriminant: #{type_string union.discriminant.type}): XdrEncodable {"
         out.indent do
           out.puts <<-EOS.strip_heredoc
           override fun toXdr(stream: XdrDataOutputStream) {
@@ -122,7 +124,7 @@ module Xdrgen
           }
           EOS
           foreach_union_case union do |union_case, arm|
-            render_union_case union_case, arm, union
+            render_union_case union_case, arm, union, name
           end
           out.break
 
@@ -132,11 +134,11 @@ module Xdrgen
         out.puts "}"
       end
 
-      def render_union_case(union_case, arm, union)
+      def render_union_case(union_case, arm, union, union_name)
         out = @out
 
         out.break
-        out.puts "public class #{name_string union_case_name(union_case).downcase}#{union_case_data arm}: #{name_string union.name}(#{type_string union.discriminant.type}.#{enum_case_name union_case_name union_case})#{arm.void? ? "" : " {"}"
+        out.puts "public class #{name_string union_case_name(union_case).downcase}#{union_case_data arm}: #{union_name}(#{type_string union.discriminant.type}.#{enum_case_name union_case_name union_case})#{arm.void? ? "" : " {"}"
         unless arm.void?
           out.indent do
             out.puts <<-EOS.strip_heredoc
@@ -178,10 +180,9 @@ module Xdrgen
         end
       end
 
-      def render_typedef(typedef)
+      def render_typedef(typedef, name)
         out = @out
 
-        name = name_string typedef.name
         unless @already_rendered.include? name
           out.puts "public typealias #{name} = #{decl_string typedef.declaration}"
         end

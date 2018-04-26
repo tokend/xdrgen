@@ -158,7 +158,7 @@ module Xdrgen
         if arm.void?
           ""
         else
-          "(var value: #{decl_string arm.declaration})"
+          "(var #{arm.name}: #{decl_string arm.declaration})"
         end
       end
 

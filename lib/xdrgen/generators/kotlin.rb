@@ -48,7 +48,7 @@ module Xdrgen
         out.puts "public enum class #{name_string enum.name}(val value: Int): XdrEncodable {"
         out.indent do
           enum.members.each do |em|
-            out.puts "#{em.name}(#{em.value}),"
+            out.puts "#{enum_case_name em.name}(#{em.value}),"
           end
           out.puts ";"
           out.break
@@ -81,7 +81,7 @@ module Xdrgen
       def render_union_case(union_case, arm, union)
         out = @out
 
-        out.puts "public class #{union_case_name union_case}#{union_case_data arm}: #{name_string union.name}(#{type_string union.discriminant.type}.#{union_case_name union_case})#{arm.void? ? "" : " {"}"
+        out.puts "public class #{name_string union_case_name union_case}#{union_case_data arm}: #{name_string union.name}(#{type_string union.discriminant.type}.#{enum_case_name union_case_name union_case})#{arm.void? ? "" : " {"}"
         unless arm.void?
           out.indent do
             out.puts <<-EOS.strip_heredoc
@@ -115,9 +115,9 @@ module Xdrgen
 
       def union_case_name(union_case)
         if union_case.value.is_a?(AST::Identifier)
-          enum_case_name union_case.value.name
+          union_case.value.name
         else
-          enum_case_name union_case.value.value
+          union_case.value.value
         end
       end
 
@@ -261,7 +261,7 @@ module Xdrgen
       end
 
       def enum_case_name(name)
-        name.downcase.camelize :lower
+        name
       end
 
       def name_string(name)

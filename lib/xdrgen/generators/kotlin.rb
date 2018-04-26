@@ -239,7 +239,7 @@ module Xdrgen
       end
 
       def render_fixed_size_opaque_type(decl)
-        name = "XDRDataFixed#{decl.size}"
+        name = "XDRByteArrayFixed#{decl.size}"
 
         unless @already_rendered.include? name
           @already_rendered << name
@@ -254,6 +254,8 @@ module Xdrgen
           }
           EOS
         end
+
+        name
       end
 
       def decl_string(decl)
@@ -261,7 +263,6 @@ module Xdrgen
         when AST::Declarations::Opaque ;
           if decl.fixed?
             render_fixed_size_opaque_type decl
-            "XDRDataFixed#{decl.size}"
           else
             "ByteArray"
           end

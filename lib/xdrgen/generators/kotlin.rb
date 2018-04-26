@@ -71,8 +71,8 @@ module Xdrgen
 
         out.puts "public class #{name}("
         out.indent 2 do
-          struct.members.each do |m|
-            out.puts "var #{m.name}: #{decl_string m.declaration}"
+          struct.members.each_with_index do |m, index|
+            out.puts "var #{m.name}: #{decl_string m.declaration}#{(index == struct.members.size - 1) ? "" : ","}"
           end
         end
         out.indent do

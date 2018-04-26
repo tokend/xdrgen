@@ -19,6 +19,10 @@ module Xdrgen
 
       def render_definition(defn)
         case defn
+        when AST::Definitions::Struct ;
+          render_element defn do
+            render_struct defn
+          end
         when AST::Definitions::Enum ;
           render_element defn do
             render_enum defn
@@ -40,6 +44,31 @@ module Xdrgen
         render_source_comment defn
         yield
         out.break
+      end
+
+      def render_struct(struct)
+        out = @out
+
+        out.puts "public class #{name_string struct.name}("
+        out.indent 2 do
+          struct.members.each do |m|
+            out.puts "var #{m.name}: #{decl_string m.declaration}"
+          end
+        end
+        out.indent do
+          out.puts ") : XdrEncodable {"
+          out.break
+          out.puts "override fun toXdr(stream: XdrDataOutputStream) {"
+          out.indent do
+            struct.members.each do |m|
+              render_element_encode m
+            end
+          end
+          out.puts "}"
+        end
+
+        out.unbreak
+        out.puts "}"
       end
 
       def render_enum(enum)

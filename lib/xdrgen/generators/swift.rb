@@ -101,6 +101,29 @@ module Xdrgen
         struct.members.each do |m|
           out.puts "public var #{m.name}: #{decl_string m.declaration}"
         end
+        out.break
+
+        render_init_block struct
+      end
+
+      def render_init_block(element)
+        out = @out
+
+        out.puts "public init("
+        out.indent 2 do
+          element.members.each_with_index do |member, index|
+            out.puts "#{member.name}: #{decl_string member.declaration}#{(index != element.members.size - 1) ? "," : ") {"}"
+          end
+        end
+        out.break
+
+        out.indent do
+          element.members.each do |member|
+            out.puts "self.#{member.name} = #{member.name}"
+          end
+        end
+        out.puts "}"
+        out.break
       end
 
       def render_union(union)

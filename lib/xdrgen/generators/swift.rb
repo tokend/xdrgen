@@ -20,7 +20,7 @@ module Xdrgen
       def render_definition(defn)
         case defn
         when AST::Definitions::Struct ;
-          render_element "public struct", defn, ": XDRStruct" do
+          render_element "public struct", defn, ": XDREncodable" do
             render_struct defn
             @out.break
             render_nested_definitions defn
@@ -49,7 +49,7 @@ module Xdrgen
           case ndefn
           when AST::Definitions::Struct ;
             name = name ndefn
-            out.puts "public struct #{name}: XDRStruct {"
+            out.puts "public struct #{name}: XDREncodable {"
             out.indent do
               render_struct ndefn
               out.break
@@ -104,6 +104,22 @@ module Xdrgen
         out.break
 
         render_init_block struct
+        
+        out.break
+        out.puts "public func toXDR() -> Data {"
+        out.indent do
+          out.puts "var xdr = Data()"
+          out.break
+          
+          struct.members.each do |m|
+            out.puts "xdr.append(self.#{m.name}.toXDR())"
+          end
+          
+          out.break
+          out.puts "return xdr"
+        end
+        out.puts "}"
+        out.break
       end
 
       def render_init_block(element)
@@ -155,7 +171,7 @@ module Xdrgen
         public func toXDR() -> Data {
           var xdr = Data()
                 
-          xdr.append(self.discriminant.xdr)
+          xdr.append(self.discriminant.toXDR())
                 
           switch self {
         EOS
@@ -164,7 +180,7 @@ module Xdrgen
             if arm.void?
               out.puts "case .#{union_case_name union_case}(): xdr.append(Data())"
             else
-              out.puts "case .#{union_case_name union_case}(let data): xdr.append(data.xdr)"
+              out.puts "case .#{union_case_name union_case}(let data): xdr.append(data.toXDR())"
             end
           end
         end

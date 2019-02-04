@@ -152,7 +152,7 @@ module Xdrgen
 
           if union.default_arm.present?
             arm = union.default_arm
-            arm_name = arm.void? ? "xdr.void()" : member_name(arm)
+            arm_name = arm.void? ? "xdr.void()" : "#{reference arm.type}"
             out.puts "defaultArm: #{arm_name},"
           end
 

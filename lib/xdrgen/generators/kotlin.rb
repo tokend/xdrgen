@@ -97,7 +97,7 @@ module Xdrgen
       def render_enum(enum, name)
         out = @out
 
-        out.puts "public enum class #{name}(val value: Int): XdrEncodable {"
+        out.puts "public enum class #{name}(val value: kotlin.Int): XdrEncodable {"
         out.indent do
           enum.members.each do |em|
             out.puts "#{enum_case_name em.name}(#{em.value}),"
@@ -282,7 +282,7 @@ module Xdrgen
           render_top_matter out
           out.puts <<-EOS.strip_heredoc
           /// Fixed length byte array 
-          class #{name}(byteArray: ByteArray): XdrFixedByteArray(byteArray) {
+          class #{name}(byteArray: kotlin.ByteArray): XdrFixedByteArray(byteArray) {
               override val size: Int
                   get() = #{decl.size}
           }
@@ -298,12 +298,12 @@ module Xdrgen
           if decl.fixed?
             render_fixed_size_opaque_type decl
           else
-            "ByteArray"
+            "kotlin.ByteArray"
           end
         when AST::Declarations::String ;
-          "String"
+          "kotlin.String"
         when AST::Declarations::Array ;
-          "Array<#{type_string decl.type}>"
+          "kotlin.Array<#{type_string decl.type}>"
         when AST::Declarations::Optional ;
           "#{type_string(decl.type)}?"
         when AST::Declarations::Simple ;
@@ -316,13 +316,13 @@ module Xdrgen
       def type_string(type)
         case type
         when AST::Typespecs::Int ;
-          "Int"
+          "kotlin.Int"
         when AST::Typespecs::UnsignedInt ;
-          "Int"
+          "kotlin.Int"
         when AST::Typespecs::Hyper ;
-          "Long"
+          "kotlin.Long"
         when AST::Typespecs::UnsignedHyper ;
-          "Long"
+          "kotlin.Long"
         when AST::Typespecs::Float ;
           raise "cannot render Float in Kotlin"
         when AST::Typespecs::Double ;
@@ -330,11 +330,11 @@ module Xdrgen
         when AST::Typespecs::Quadruple ;
           raise "cannot render Quadruple in Kotlin"
         when AST::Typespecs::Bool ;
-          "Boolean"
+          "kotlin.Boolean"
         when AST::Typespecs::Opaque ;
-          "ByteArray"
+          "kotlin.ByteArray"
         when AST::Typespecs::Simple ;
-          name type.resolved_type
+          "#{@namespace}.#{name type.resolved_type}"
         when AST::Concerns::NestedDefinition ;
           name type
         else

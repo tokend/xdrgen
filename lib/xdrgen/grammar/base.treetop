@@ -53,6 +53,9 @@ grammar XdrBaseGrammar
     <Xdrgen::AST::OctalConstant>
   end
 
+  rule documentation
+    line_documentation+
+  end
 
   # Misc.
 

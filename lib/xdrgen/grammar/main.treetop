@@ -8,6 +8,7 @@ grammar XdrMainGrammar
   include XdrUnionGrammar
   include XdrConstGrammar
   include XdrNamespaceGrammar
+  include XdrDocumentationGrammar
 
   rule top
     children_n:definition*

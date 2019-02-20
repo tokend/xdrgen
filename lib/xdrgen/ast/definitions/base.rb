@@ -4,6 +4,16 @@ module Xdrgen::AST::Definitions
     def sub_type
       :simple
     end
-    
+
+    def documentation
+      return '' unless respond_to?(:documentation_n) && documentation_n.present?
+
+      documentation_n
+        .text_value
+        .split("\n")
+        .select(&:present?)
+        .map { |line| line.strip.sub(%r{^//:[\s]?}, '') }
+        .join("\n")
+    end
   end
 end

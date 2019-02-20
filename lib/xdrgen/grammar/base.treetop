@@ -55,6 +55,7 @@ grammar XdrBaseGrammar
 
   rule documentation
     line_documentation+
+    <Xdrgen::AST::Documentation>
   end
 
   # Misc.

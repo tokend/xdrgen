@@ -1,14 +1,11 @@
 grammar XdrDeclarationGrammar
   rule declaration
-    documentation_n:documentation?
-    (
-      void_decl /
-      opaque_decl /
-      string_decl /
-      array_decl /
-      optional_decl /
-      simple_decl
-    )
+    void_decl /
+    opaque_decl /
+    string_decl /
+    array_decl /
+    optional_decl /
+    simple_decl
   end
 
   rule void_decl

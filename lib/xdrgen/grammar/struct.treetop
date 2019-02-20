@@ -17,6 +17,7 @@ grammar XdrStructGrammar
   end
 
   rule struct_member
+    documentation_n:(documentation)?
     declaration 
     space? 
     ";" 

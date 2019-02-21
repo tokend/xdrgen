@@ -318,7 +318,7 @@ module Xdrgen
         when AST::Typespecs::Int ;
           "kotlin.Int"
         when AST::Typespecs::UnsignedInt ;
-          "kotlin.Int"
+          "kotlin.Long"
         when AST::Typespecs::Hyper ;
           "kotlin.Long"
         when AST::Typespecs::UnsignedHyper ;

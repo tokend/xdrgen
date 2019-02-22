@@ -5,9 +5,9 @@ module Xdrgen
         @already_rendered = ["Int64", "Int32"]
         @file_extension = "swift"
 
-        path = "XDRTypes.#{@file_extension}"
-        @out = @output.open path
-        render_top_matter @out
+        typedef_path = "Typedefs.#{@file_extension}"
+        @typedefs = @output.open typedef_path
+        render_top_matter @typedefs
 
         render_definitions @top
       end
@@ -20,30 +20,41 @@ module Xdrgen
       def render_definition(defn)
         case defn
         when AST::Definitions::Struct ;
-          render_element "public struct", defn, ": XDREncodable" do
-            render_struct defn
-            @out.break
-            render_nested_definitions defn
+          puts "Render: #{defn.name}"
+          file_path = "#{defn.name}.#{@file_extension}"
+          out = @output.open file_path
+          render_top_matter out
+
+          render_element "public struct", defn, ": XDREncodable", out do
+            render_struct defn, out
+            render_nested_definitions defn, out
           end
         when AST::Definitions::Enum ;
-          render_element "public enum", defn, ": Int32, XDREnum" do
-            render_enum defn
+          puts "Render: #{defn.name}"
+          file_path = "#{defn.name}.#{@file_extension}"
+          out = @output.open file_path
+          render_top_matter out
+
+          render_element "public enum", defn, ": Int32, XDREnum", out do
+            render_enum defn, out
           end
         when AST::Definitions::Union ;
-          render_element "public enum", defn, ": XDRDiscriminatedUnion" do
-            render_union defn
-            @out.break
-            render_nested_definitions defn
+          puts "Render: #{defn.name}"
+          file_path = "#{defn.name}.#{@file_extension}"
+          out = @output.open file_path
+          render_top_matter out
+
+          render_element "public enum", defn, ": XDRDiscriminatedUnion", out do
+            render_union defn, out
+            render_nested_definitions defn, out
           end
         when AST::Definitions::Typedef ;
           render_typedef defn
-          @out.break
+          @typedefs.break
         end
       end
 
-      def render_nested_definitions(defn)
-        out = @out
-
+      def render_nested_definitions(defn, out)
         return unless defn.respond_to? :nested_definitions
         defn.nested_definitions.each{|ndefn|
           case ndefn
@@ -51,25 +62,25 @@ module Xdrgen
             name = name ndefn
             out.puts "public struct #{name}: XDREncodable {"
             out.indent do
-              render_struct ndefn
+              render_struct ndefn, out
               out.break
-              render_nested_definitions ndefn
+              render_nested_definitions ndefn, out
             end
             out.puts "}"
           when AST::Definitions::Enum ;
             name = name ndefn
             out.puts "public enum #{name}: Int32, XDREnum {"
             out.indent do
-              render_enum ndefn
+              render_enum ndefn, out
             end
             out.puts "}"
           when AST::Definitions::Union ;
             name = name ndefn
             out.puts "public enum #{name}: XDRDiscriminatedUnion {"
             out.indent do
-              render_union ndefn
+              render_union ndefn, out
               out.break
-              render_nested_definitions ndefn
+              render_nested_definitions ndefn, out
             end
             out.puts "}"
           when AST::Definitions::Typedef ;
@@ -80,11 +91,9 @@ module Xdrgen
         }
       end
 
-      def render_element(type, element, post_name="")
-        out = @out
-
+      def render_element(type, element, post_name="", out)
         name = name_string element.name
-        render_source_comment element
+        render_source_comment element, out
 
         out.puts "#{type} #{name}#{post_name} {"
         out.indent do
@@ -92,29 +101,26 @@ module Xdrgen
           out.unbreak
         end
         out.puts "}"
-        @out.break
       end
 
-      def render_struct(struct)
-        out = @out
-
+      def render_struct(struct, out)
         struct.members.each do |m|
           out.puts "public var #{m.name}: #{decl_string m.declaration}"
         end
         out.break
 
-        render_init_block struct
-        
+        render_init_block struct, out
+
         out.break
         out.puts "public func toXDR() -> Data {"
         out.indent do
           out.puts "var xdr = Data()"
           out.break
-          
+
           struct.members.each do |m|
             out.puts "xdr.append(self.#{m.name}.toXDR())"
           end
-          
+
           out.break
           out.puts "return xdr"
         end
@@ -122,9 +128,7 @@ module Xdrgen
         out.break
       end
 
-      def render_init_block(element)
-        out = @out
-
+      def render_init_block(element, out)
         out.puts "public init("
         out.indent 2 do
           element.members.each_with_index do |member, index|
@@ -142,9 +146,7 @@ module Xdrgen
         out.break
       end
 
-      def render_union(union)
-        out = @out
-
+      def render_union(union, out)
         foreach_union_case union do |union_case, arm|
           out.puts "case #{union_case_name union_case}(#{decl_string arm.declaration})"
         end
@@ -170,9 +172,9 @@ module Xdrgen
         out.puts <<-EOS.strip_heredoc
         public func toXDR() -> Data {
           var xdr = Data()
-                
+
           xdr.append(self.discriminant.toXDR())
-                
+
           switch self {
         EOS
         out.indent do
@@ -211,9 +213,9 @@ module Xdrgen
       end
 
       def render_typedef(typedef)
-        out = @out
+        out = @typedefs
 
-        render_source_comment typedef
+        render_source_comment typedef, out
 
         name = name_string typedef.name
         unless @already_rendered.include? name
@@ -230,12 +232,12 @@ module Xdrgen
           out = @output.open "#{name}.#{@file_extension}"
           render_top_matter out
           out.puts <<-EOS.strip_heredoc
-          /// Fixed length byte array 
+          /// Fixed length byte array
           public struct #{name}: XDRDataFixed {
             public static var length: Int { return #{decl.size} }
 
             public var wrapped: Data
-          
+
             public init() {
                 self.wrapped = Data()
             }
@@ -244,9 +246,7 @@ module Xdrgen
         end
       end
 
-      def render_enum(enum)
-        out = @out
-
+      def render_enum(enum, out)
         enum.members.each do |em|
           out.puts "case #{enum_case_name em.name} = #{em.value}"
         end
@@ -255,7 +255,7 @@ module Xdrgen
 
       def render_top_matter(out)
         out.puts <<-EOS.strip_heredoc
-          // Automatically generated by xdrgen 
+          // Automatically generated by xdrgen
           // DO NOT EDIT or your changes may be overwritten
 
           import Foundation
@@ -263,9 +263,7 @@ module Xdrgen
         out.break
       end
 
-      def render_source_comment(defn)
-        out = @out
-
+      def render_source_comment(defn, out)
         return if defn.is_a?(AST::Definitions::Namespace)
 
         out.puts <<-EOS.strip_heredoc

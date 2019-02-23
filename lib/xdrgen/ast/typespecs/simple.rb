@@ -10,5 +10,17 @@ module Xdrgen::AST::Typespecs
       result
     end
 
+    def primitive?
+      %w[
+        long
+        uint64
+        uint32
+        integer
+        float
+        double
+        boolean
+        string
+      ].include?(name.downcase)
+    end
   end
 end

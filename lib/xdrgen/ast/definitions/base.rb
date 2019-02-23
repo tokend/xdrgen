@@ -13,7 +13,6 @@ module Xdrgen::AST::Definitions
         .split("\n")
         .select(&:present?)
         .map { |line| line.strip.sub(%r{^//:[\s]?}, '') }
-        .join("\n")
     end
   end
 end

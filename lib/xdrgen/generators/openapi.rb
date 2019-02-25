@@ -3,6 +3,11 @@ module Xdrgen
     class Openapi < Xdrgen::Generators::Base
       OPENAPI_VERSION = '3.0.0'
 
+      # Would not make ref to the definition of these types.
+      # Instead will just write "type: <type>".
+      # Add new types to this array in lowercase.
+      LESS_INFO_TYPES = %w[accountid balanceid]
+
       def generate
         @already_rendered = []
         generated_path = "#{@namespace}_openapi_generated.yaml"
@@ -298,6 +303,8 @@ module Xdrgen
         when AST::Typespecs::Simple
           if type.primitive?
             "type: #{name(type).downcase}"
+          elsif LESS_INFO_TYPES.include?(name(type).downcase)
+            "type: #{name(type).underscore.camelize}"
           else
             "$ref: '#/components/schemas/#{name type}'"
           end

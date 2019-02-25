@@ -122,6 +122,10 @@ module Xdrgen
           @generated.puts "#{name(union).underscore.camelize}:"
           @generated.indent do
             @generated.puts "type: object"
+            if union.documentation.present?
+              @generated.puts "description: |-"
+              @generated.indent { @generated.puts union.documentation.join("\n") }
+            end
             @generated.puts "oneOf:"
             @generated.indent do
               union.arms.each do |arm|
@@ -164,12 +168,20 @@ module Xdrgen
         @generated.puts "#{name(union)}Arm#{kase.value_s.underscore.camelize}:"
         @generated.indent do
           @generated.puts("type: object")
+          if kase.documentation.present?
+            @generated.puts("description: |-")
+            @generated.indent { @generated.puts kase.documentation.join("\n") }
+          end
           @generated.puts("properties:")
           @generated.indent do
             @generated.puts("#{name(union.discriminant).downcase}:")
             @generated.indent do
               @generated.puts "type: string"
               @generated.puts "enum: [#{kase.value_s}]"
+              if arm.documentation.present?
+                @generated.puts "description: |-"
+                @generated.puts arm.documentation.join("\n")
+              end
             end
           @generated.puts "#{arm.name}:"
           @generated.indent { @generated.puts(reference(arm.type)) }
@@ -197,7 +209,14 @@ module Xdrgen
         @generated.puts("#{name(arm.union)}ArmDefault:")
         @generated.indent do
           @generated.puts("type: object")
-          @generated.puts("description: \"Not generated yet\"")
+          @generated.puts("description: |-")
+          @generated.indent do
+            @generated.puts "Not generated yet"
+
+            if arm.documentation.present?
+              @generated.puts arm.documentation.join("\n")
+            end
+          end
         end
       end
 

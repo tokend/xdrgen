@@ -109,8 +109,9 @@ module Xdrgen
       end
 
       def render_union(union)
-        # We need them to be rendered, to references them later
+        # We need arms' types to be rendered, to references them later
         @generated.indent { render_union_arms(union) }
+
         @generated.indent do
           @generated.puts '#{name(union).underscore.camelize}:'
           @generated.puts "#{name(union).underscore.camelize}:"
@@ -119,8 +120,10 @@ module Xdrgen
             @generated.puts "oneOf:"
             @generated.indent do
               union.arms.each do |arm|
-                # TODO: how we should process defaults?
-                next if arm.is_a? Xdrgen::AST::Definitions::UnionDefaultArm
+                if arm.is_a? Xdrgen::AST::Definitions::UnionDefaultArm
+                  @generated.puts "- $ref: '#/components/schemas/#{name(arm.union)}ArmDefault'"
+                  next
+                end
 
                 arm.cases.each do |kase|
                   # TODO: May be this can be done better than it is
@@ -135,16 +138,19 @@ module Xdrgen
       # TODO: Find a way to render default arms
       def render_union_arms(union)
         union.arms.each do |arm|
-          next if arm.is_a?(Xdrgen::AST::Definitions::UnionDefaultArm)
-
-          if arm.void?
-            render_void_arm(union, arm)
-            next
+          if arm.is_a?(Xdrgen::AST::Definitions::UnionDefaultArm)
+            render_default_arm(arm)
+          elsif arm.void?
+            render_void_arm(arm)
+          else
+            render_common_arm(arm)
           end
+        end
+      end
 
-          arm.cases.each do |kase|
-            render_union_case(union, arm, kase)
-          end
+      def render_common_arm(arm)
+        arm.cases.each do |kase|
+          render_union_case(arm.union, arm, kase)
         end
       end
 
@@ -166,8 +172,8 @@ module Xdrgen
         end
       end
 
-      def render_void_arm(union, arm)
-        @generated.puts("#{name(union)}Arm#{arm.cases.first.value_s.underscore.camelize}:")
+      def render_void_arm(arm)
+        @generated.puts("#{name(arm.union)}Arm#{arm.cases.first.value_s.underscore.camelize}:")
         @generated.indent do
           @generated.puts "type: object"
           @generated.puts "properties:"
@@ -179,6 +185,14 @@ module Xdrgen
               arm.cases.each { |kase| @generated.puts "- #{kase.value_s.underscore.camelize}"}
             end
           end
+        end
+      end
+
+      def render_default_arm(arm)
+        @generated.puts("#{name(arm.union)}ArmDefault:")
+        @generated.indent do
+          @generated.puts("type: object")
+          @generated.puts("description: \"Not generated yet\"")
         end
       end
 

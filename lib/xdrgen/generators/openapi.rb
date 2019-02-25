@@ -124,7 +124,7 @@ module Xdrgen
 
                 arm.cases.each do |kase|
                   # TODO: May be this can be done better than it is
-                  @generated.puts "- $ref: '#/components/schemas/#{name(union)}Case#{kase.value_s.underscore.camelize}'"
+                  @generated.puts "- $ref: '#/components/schemas/#{name(union)}Arm#{kase.value_s.underscore.camelize}'"
                 end
               end
             end
@@ -132,13 +132,11 @@ module Xdrgen
         end
       end
 
-      # TODO: should we skip void arms?
-      # TODO: what if there is ONLY void arms?
+      # TODO: Find a way to render default arms
       def render_union_arms(union)
         union.arms.each do |arm|
-          # next if arm.void?
           next if arm.is_a?(Xdrgen::AST::Definitions::UnionDefaultArm)
-          
+
           if arm.void?
             render_void_arm(union, arm)
             next
@@ -152,7 +150,7 @@ module Xdrgen
 
       def render_union_case(union, arm, kase)
         @generated.puts '#{name(union)}#{kase.value_s.underscore.camelize}:'
-        @generated.puts "#{name(union)}Case#{kase.value_s.underscore.camelize}:"
+        @generated.puts "#{name(union)}Arm#{kase.value_s.underscore.camelize}:"
         @generated.indent do
           @generated.puts("type: object")
           @generated.puts("properties:")
@@ -169,8 +167,19 @@ module Xdrgen
       end
 
       def render_void_arm(union, arm)
-        @generated.puts("#{name(union)}Case#{arm.cases.first.value_s.underscore.camelize}:")
-        @generated.indent { @generated.puts "$ref: '#/components/schemas/Void'" }
+        @generated.puts("#{name(union)}Arm#{arm.cases.first.value_s.underscore.camelize}:")
+        @generated.indent do
+          @generated.puts "type: object"
+          @generated.puts "properties:"
+          @generated.indent { @generated.puts "type:" }
+          @generated.indent(step = 2) do
+            @generated.puts "type: string"
+            @generated.puts "enum:"
+            @generated.indent do
+              arm.cases.each { |kase| @generated.puts "- #{kase.value_s.underscore.camelize}"}
+            end
+          end
+        end
       end
 
       # TODO: May be it is possible to pass git ref here.

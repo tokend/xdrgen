@@ -59,10 +59,7 @@ module Xdrgen
       def render_struct(struct)
         @generated.indent { @generated.puts "#{name struct}:" }
         @generated.indent(step = 2) do
-          if struct.documentation.present?
-            @generated.puts 'description: |-'
-            @generated.indent { @generated.puts struct.documentation.join("\n")}
-          end
+          render_documentation_if_needed(struct)
 
           @generated.puts 'properties:'
           @generated.indent do
@@ -115,10 +112,7 @@ module Xdrgen
           @generated.puts "#{name(union).underscore.camelize}:"
           @generated.indent do
             @generated.puts "type: object"
-            if union.documentation.present?
-              @generated.puts "description: |-"
-              @generated.indent { @generated.puts union.documentation.join("\n") }
-            end
+            render_documentation_if_needed(union)
             @generated.puts "oneOf:"
             @generated.indent do
               union.arms.each do |arm|
@@ -153,32 +147,31 @@ module Xdrgen
         # One arm can unify several discriminator values (fallthrough)
         # We render each case as a separate component
         arm.cases.each do |kase|
-          render_union_case(arm.union, arm, kase)
+          render_union_case(arm, kase)
         end
       end
 
-      def render_union_case(union, arm, kase)
-        @generated.puts '#{name(union)}#{kase.value_s.underscore.camelize}:'
-        @generated.puts "#{name(union)}Arm#{kase.value_s.underscore.camelize}:"
+      def render_union_case(arm, kase)
+        @generated.puts "#{name(arm.union)}Arm#{kase.value_s.underscore.camelize}:"
         @generated.indent do
           @generated.puts("type: object")
-          if kase.documentation.present?
-            @generated.puts("description: |-")
-            @generated.indent { @generated.puts kase.documentation.join("\n") }
-          end
+          render_documentation_if_needed(kase)
           @generated.puts("properties:")
           @generated.indent do
-            @generated.puts("#{name(union.discriminant).downcase}:")
+
+            # Render discriminator
+            @generated.puts("#{name(arm.union.discriminant).downcase}:")
             @generated.indent do
               @generated.puts "type: string"
               @generated.puts "enum: [#{kase.value_s}]"
-              if arm.documentation.present?
-                @generated.puts "description: |-"
-                @generated.puts arm.documentation.join("\n")
-              end
             end
-          @generated.puts "#{arm.name}:"
-          @generated.indent { @generated.puts(reference(arm.type)) }
+
+            # Render case body
+            @generated.puts "#{arm.name}:"
+            @generated.indent do
+              @generated.puts(reference(arm.type))
+              render_documentation_if_needed(arm)
+            end
           end
         end
       end
@@ -298,6 +291,13 @@ module Xdrgen
           "$ref: '#/components/schemas/#{name type}'"
         else
           raise "Unknown reference type: #{type.class.name}, #{type.class.ancestors}"
+        end
+      end
+
+      def render_documentation_if_needed(node)
+        if node.respond_to?(:documentation) && node.documentation.present?
+          @generated.puts 'description: |-'
+          @generated.indent { @generated.puts node.documentation.join("\n") }
         end
       end
     end

@@ -57,7 +57,6 @@ module Xdrgen
       end
 
       def render_struct(struct)
-        @generated.indent { @generated.puts '#{name struct}:' }
         @generated.indent { @generated.puts "#{name struct}:" }
         @generated.indent(step = 2) do
           if struct.documentation.present?
@@ -76,19 +75,14 @@ module Xdrgen
 
       def render_struct_member(member)
         # TODO: Is it possible, that struct member does not have a name?
-        @generated.puts '#{name struct_member}:'
         @generated.puts "#{name member}:"
         @generated.indent do
           @generated.puts "#{reference(member.declaration.type)}"
-          if member.respond_to?(:documentation) && member.documentation.present?
-            @generated.puts "description: |-"
-            @generated.indent { @generated.puts member.documentation.join("\n") }
-          end
+          render_documentation_if_needed(member)
         end
       end
 
       def render_enum(enum)
-        @generated.indent { @generated.puts '#{name enum}:' }
         @generated.indent { @generated.puts "#{name enum}:" }
 
         # Generated enum description with names for values
@@ -118,7 +112,6 @@ module Xdrgen
         @generated.indent { render_union_arms(union) }
 
         @generated.indent do
-          @generated.puts '#{name(union).underscore.camelize}:'
           @generated.puts "#{name(union).underscore.camelize}:"
           @generated.indent do
             @generated.puts "type: object"
@@ -144,7 +137,6 @@ module Xdrgen
         end
       end
 
-      # TODO: Find a way to render default arms
       def render_union_arms(union)
         union.arms.each do |arm|
           if arm.is_a?(Xdrgen::AST::Definitions::UnionDefaultArm)
@@ -158,6 +150,8 @@ module Xdrgen
       end
 
       def render_common_arm(arm)
+        # One arm can unify several discriminator values (fallthrough)
+        # We render each case as a separate component
         arm.cases.each do |kase|
           render_union_case(arm.union, arm, kase)
         end
@@ -211,22 +205,15 @@ module Xdrgen
           @generated.puts("type: object")
           @generated.puts("description: |-")
           @generated.indent do
-            @generated.puts "Not generated yet"
-
             if arm.documentation.present?
               @generated.puts arm.documentation.join("\n")
             end
+            @generated.puts "Note: Not generated properly yet, check .x file"
           end
         end
       end
 
-      # TODO: May be it is possible to pass git ref here.
       def render_top_matter
-        # openapi: #{OPENAPI_VERSION}
-        # info:
-        #   title: #{@namespace}
-        #   version: 1.0.0
-
         @generated.puts <<~HEADER.strip_heredoc
           # Documentation is generated from:
           #
@@ -254,36 +241,12 @@ module Xdrgen
         XDR_DEF
       end
 
-      # TODO: Dunno what to do with all of this ==================================================
       def render_typedef(typedef)
         @generated.indent { @generated.puts("#{name typedef}:") }
         @generated.indent(step = 2) { @generated.puts("#{reference typedef.declaration.type}") }
-        # out.puts "type #{name typedef} #{reference typedef.declaration.type}"
-
-        # # write sizing restrictions
-        # case typedef.declaration
-        # when Xdrgen::AST::Declarations::String
-        #   render_maxsize_method out, typedef, typedef.declaration.resolved_size
-        # when Xdrgen::AST::Declarations::Array
-        #   unless typedef.declaration.fixed?
-        #     render_maxsize_method out, typedef, typedef.declaration.resolved_size
-        #   end
-        # end
-
-        # return unless typedef.sub_type == :simple
-
-        # resolved = typedef.resolved_type
-
-        # case resolved
-        # when AST::Definitions::Enum
-        #   render_enum_typedef out, typedef, resolved
-        # when AST::Definitions::Union
-        #   render_union_typedef out, typedef, resolved
-        # end
-
-        # out.break
       end
 
+      # TODO: Dunno what to do with all of this ==================================================
       def render_fixed_size_opaque_type(decl); end
       def decl_string(decl); end
       def type_string(type); end
@@ -291,6 +254,7 @@ module Xdrgen
       def name_string(name); end
       # ===========================================================================================
 
+      # Finds a name of the syntax node
       def name(named)
         parent = name named.parent_defn if named.is_a?(AST::Concerns::NestedDefinition)
 
@@ -299,6 +263,9 @@ module Xdrgen
         "#{parent}#{base.underscore.camelize}"
       end
 
+      # References syntax node's type
+      # For primitive and built-in types will return "type: <type>"
+      # For user-defined types will return "$ref: #/components/schema/<type>"
       def reference(type)
         baseReference = case type
         when AST::Typespecs::Bool

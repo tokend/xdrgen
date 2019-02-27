@@ -54,9 +54,9 @@ grammar XdrUnionGrammar
 
 
   rule default_case_spec
-    documentation_n:documentation?
     "default" space? ":"
     space?
+    documentation_n:documentation?
     declaration
     space?
     ";"

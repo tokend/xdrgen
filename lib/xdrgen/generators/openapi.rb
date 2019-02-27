@@ -155,7 +155,14 @@ module Xdrgen
         @generated.puts "#{name(arm.union)}Arm#{kase.value_s.underscore.camelize}:"
         @generated.indent do
           @generated.puts("type: object")
-          render_documentation_if_needed(kase)
+
+          case_from_enum = arm.union.discriminant_type.member_by_name(kase.value_s)
+          if case_from_enum&.documentation.present?
+            render_documentation_if_needed(case_from_enum)
+          else
+            render_documentation_if_needed(kase)
+          end
+
           @generated.puts("properties:")
           @generated.indent do
 
@@ -295,7 +302,7 @@ module Xdrgen
       end
 
       def render_documentation_if_needed(node)
-        if node.respond_to?(:documentation) && node.documentation.present?
+        if node&.respond_to?(:documentation) && node.documentation.present?
           @generated.puts 'description: |-'
           @generated.indent { @generated.puts node.documentation.join("\n") }
         end

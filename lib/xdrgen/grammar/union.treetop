@@ -1,6 +1,7 @@
 grammar XdrUnionGrammar
 
   rule union_def
+    documentation_n:documentation?
     "union" space
     identifier space
     union_body space?
@@ -31,6 +32,7 @@ grammar XdrUnionGrammar
   rule arm_spec
     cases_n:case_spec+
     space?
+    documentation_n:documentation?
     declaration
     space?
     ";"
@@ -40,6 +42,7 @@ grammar XdrUnionGrammar
 
 
   rule case_spec
+    documentation_n:documentation?
     "case"
     space?
     value
@@ -51,6 +54,7 @@ grammar XdrUnionGrammar
 
 
   rule default_case_spec
+    documentation_n:documentation?
     "default" space? ":"
     space?
     declaration

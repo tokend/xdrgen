@@ -1,6 +1,7 @@
 grammar XdrEnumGrammar
 
   rule enum_def
+    documentation_n:documentation?
     "enum" space 
     identifier space? 
     enum_body space? 
@@ -24,6 +25,7 @@ grammar XdrEnumGrammar
   end
 
   rule enum_member
+    documentation_n:documentation?
     identifier 
     space? 
     value_n:enum_value?

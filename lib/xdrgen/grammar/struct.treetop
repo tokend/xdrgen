@@ -1,6 +1,7 @@
 grammar XdrStructGrammar
 
   rule struct_def
+    documentation_n:(documentation)?
     "struct" space
     identifier space? 
     struct_body space? 
@@ -17,6 +18,7 @@ grammar XdrStructGrammar
   end
 
   rule struct_member
+    documentation_n:(documentation)?
     declaration 
     space? 
     ";" 

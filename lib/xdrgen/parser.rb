@@ -29,6 +29,7 @@ grammars = %w(
   union
   typedef
   namespace
+  documentation
   comments
   main
 )

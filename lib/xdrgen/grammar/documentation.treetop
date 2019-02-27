@@ -1,0 +1,5 @@
+grammar XdrDocumentationGrammar
+  rule line_documentation
+   (!"\n" ["\s""\t"])* "//:" (!"\n" .)* "\n" (!"\n" ["\s""\t"])*
+  end
+end

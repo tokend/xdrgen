@@ -12,6 +12,12 @@ module Xdrgen::AST
         end
         results
       end
+
+      def member_by_name(name)
+        members.each do |m|
+          return m if m.name.casecmp?(name)
+        end
+      end
     end
   end
 end

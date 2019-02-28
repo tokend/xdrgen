@@ -31,6 +31,26 @@ module Xdrgen::AST
           map(&:type).
           select{|d| d.is_a?(Concerns::NestedDefinition)}
       end
+
+      # Checks whether there is union's arm with discriminator value of kase
+      def case_processed?(kase)
+        kase = kase.name unless kase.is_a?(String)
+
+        arms.each do |arm|
+          # Default arm does not have cases
+          next if arm.is_a?(Xdrgen::AST::Definitions::UnionDefaultArm)
+
+          arm.cases.each do |c|
+            return true if c.value_s.casecmp?(kase)
+          end
+        end
+
+        false
+      end
+
+      def default_arm
+        arms.find { |arm| arm.is_a?(Xdrgen::AST::Definitions::UnionDefaultArm) }
+      end
     end
   end
 end

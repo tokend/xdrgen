@@ -74,8 +74,17 @@ module Xdrgen
         # TODO: Is it possible, that struct member does not have a name?
         @generated.puts "#{name member}:"
         @generated.indent do
-          @generated.puts "#{reference(member.declaration.type)}"
           render_documentation_if_needed(member)
+
+          # In case of user-defined types, their descriptions override member's description
+          # So we have to make allOf, to save member's description
+          if member.declaration.type.primitive? ||
+             LESS_INFO_TYPES.include?(name(member.declaration.type).downcase)
+            @generated.puts "#{reference(member.declaration.type)}"
+          else
+            @generated.puts "allOf:"
+            @generated.indent { @generated.puts "- #{reference(member.declaration.type)}" }
+          end
         end
       end
 

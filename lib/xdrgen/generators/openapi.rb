@@ -86,9 +86,11 @@ module Xdrgen
         @generated.indent(step = 2) do
           @generated.puts 'description: |-'
           @generated.indent do
+            @generated.puts '| Name | Value | Description |'
+            @generated.puts '|------|-------|-------------|'
             enum.members.each do |m|
-              @generated.puts "- \"#{(name m).underscore}\": #{m.value}"
-              @generated.indent { @generated.puts(m.documentation.join("\n")) if m.documentation.present? }
+              docs = m.documentation.present? ? m.documentation.join(' ') : '-'
+              @generated.puts "|#{(name m).underscore.upcase}|#{m.value}|#{docs}|"
             end
           end
         end
@@ -99,7 +101,7 @@ module Xdrgen
           @generated.puts 'type: string'
           @generated.puts 'enum:'
           enum.members.each do |m|
-            @generated.puts "- #{(name m).underscore}"
+            @generated.puts "- #{(name m).underscore.upcase}"
           end
         end
       end

@@ -5,5 +5,8 @@ module Xdrgen::AST::Typespecs
     delegate :size, to: :decl
     delegate :name, to: :decl
 
+    def primitive?
+      true
+    end
   end
 end

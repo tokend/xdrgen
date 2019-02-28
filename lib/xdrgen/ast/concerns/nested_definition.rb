@@ -10,7 +10,10 @@ module Xdrgen::AST
         find_ancestors(Definitions::Struct).last ||
         find_ancestors(Definitions::Union).last
       end
-      
+
+      def primitive?
+        false
+      end
     end
   end
 end

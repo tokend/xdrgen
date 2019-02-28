@@ -14,5 +14,9 @@ module Xdrgen::AST::Definitions
         .select(&:present?)
         .map { |line| line.strip.sub(%r{^//:[\s]?}, '') }
     end
+
+    def primitive?
+      false
+    end
   end
 end

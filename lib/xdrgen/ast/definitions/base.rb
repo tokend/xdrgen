@@ -6,7 +6,7 @@ module Xdrgen::AST::Definitions
     end
 
     def documentation
-      return '' unless respond_to?(:documentation_n) && documentation_n.present?
+      return [] unless respond_to?(:documentation_n) && documentation_n.present?
 
       documentation_n
         .text_value

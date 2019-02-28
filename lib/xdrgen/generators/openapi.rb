@@ -116,14 +116,16 @@ module Xdrgen
             @generated.puts "oneOf:"
             @generated.indent do
               union.arms.each do |arm|
-                if arm.is_a? Xdrgen::AST::Definitions::UnionDefaultArm
-                  @generated.puts "- $ref: '#/components/schemas/#{name(arm.union)}ArmDefault'"
-                  next
-                end
+                next if arm.is_a? Xdrgen::AST::Definitions::UnionDefaultArm
 
                 arm.cases.each do |kase|
-                  # TODO: May be this can be done better than it is
                   @generated.puts "- $ref: '#/components/schemas/#{name(union)}Arm#{kase.value_s.underscore.camelize}'"
+                end
+              end
+
+              union&.discriminant_type&.members&.each do |member|
+                unless union.case_processed?(member.name)
+                  @generated.puts "- $ref: '#/components/schemas/#{name(union)}Arm#{member.name.underscore.camelize}'"
                 end
               end
             end
@@ -141,6 +143,7 @@ module Xdrgen
             render_common_arm(arm)
           end
         end
+        render_unprocessed_enum_values(union)
       end
 
       def render_common_arm(arm)
@@ -152,25 +155,24 @@ module Xdrgen
       end
 
       def render_union_case(arm, kase)
+        case_from_enum = arm.union.discriminant_type.member_by_name(kase.value_s)
+
         @generated.puts "#{name(arm.union)}Arm#{kase.value_s.underscore.camelize}:"
         @generated.indent do
           @generated.puts("type: object")
-
-          case_from_enum = arm.union.discriminant_type.member_by_name(kase.value_s)
-          if case_from_enum&.documentation.present?
-            render_documentation_if_needed(case_from_enum)
-          else
-            render_documentation_if_needed(kase)
-          end
-
           @generated.puts("properties:")
           @generated.indent do
-
             # Render discriminator
             @generated.puts("#{name(arm.union.discriminant).downcase}:")
             @generated.indent do
               @generated.puts "type: string"
               @generated.puts "enum: [#{kase.value_s}]"
+
+              if case_from_enum&.documentation.present?
+                render_documentation_if_needed(case_from_enum)
+              else
+                render_documentation_if_needed(kase)
+              end
             end
 
             # Render case body
@@ -199,6 +201,7 @@ module Xdrgen
         end
       end
 
+      # TODO: We do not refer to default arm anymore, maybe should delete?
       def render_default_arm(arm)
         @generated.puts("#{name(arm.union)}ArmDefault:")
         @generated.indent do
@@ -208,7 +211,33 @@ module Xdrgen
             if arm.documentation.present?
               @generated.puts arm.documentation.join("\n")
             end
-            @generated.puts "Note: Not generated properly yet, check .x file"
+            @generated.puts "[Note] Not generated properly yet, check .x file"
+          end
+        end
+      end
+
+      # TODO: We are ingoring value from default. Though it can be non-void
+      # Discriminant enum can contain values, which are not processed
+      # in the union. All of them will fall to the defaul case, but
+      # they need to be rendered!
+      def render_unprocessed_enum_values(union)
+        return unless union.discriminant_type
+
+        union.discriminant_type.members.each do |member|
+          next if union.case_processed?(member.name)
+
+          @generated.puts "#{name(union)}Arm#{member.name.underscore.camelize}:"
+          @generated.indent do
+            @generated.puts 'type: object'
+            @generated.puts 'properties:'
+            @generated.indent do
+              @generated.puts("#{name(union.discriminant).downcase}:")
+              @generated.indent do
+                @generated.puts 'type: string'
+                @generated.puts "enum: [#{member.name.underscore.upcase}]"
+                render_documentation_if_needed(member)
+              end
+            end
           end
         end
       end
@@ -267,7 +296,7 @@ module Xdrgen
       # For primitive and built-in types will return "type: <type>"
       # For user-defined types will return "$ref: #/components/schema/<type>"
       def reference(type)
-        baseReference = case type
+        case type
         when AST::Typespecs::Bool
           "type: boolean"
         when AST::Typespecs::Double

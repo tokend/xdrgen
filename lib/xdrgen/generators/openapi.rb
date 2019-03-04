@@ -83,9 +83,20 @@ module Xdrgen
             @generated.puts "#{reference(member.declaration.type)}"
           else
             @generated.puts "allOf:"
-            @generated.indent { @generated.puts "- #{reference(member.declaration.type)}" }
+            @generated.indent do
+              render_indented_array_element(reference(member.declaration.type).split("\n"))
+            end
           end
         end
+      end
+
+      # YAML array starts with "- ". If we print just "- #{value}", the lines
+      # after the first one will be underindented, so we have to add indentation.
+      # lines - array of elements to be printed as one yaml-array element.
+      def render_indented_array_element(lines)
+        @generated.puts "- #{lines.first}"
+        lines = lines.drop(1)
+        @generated.indent { lines.each { |line| @generated.puts line } }
       end
 
       def render_enum(enum)
@@ -307,37 +318,46 @@ module Xdrgen
       # For primitive and built-in types will return "type: <type>"
       # For user-defined types will return "$ref: #/components/schema/<type>"
       def reference(type)
-        case type
-        when AST::Typespecs::Bool
-          "type: boolean"
-        when AST::Typespecs::Double
-          "type: double"
-        when AST::Typespecs::Float
-          "type: float"
-        when AST::Typespecs::Hyper
-          "type: long"
-        when AST::Typespecs::Int
-          "type: integer"
-        when AST::Typespecs::Opaque
-          "type: array"
-        when AST::Typespecs::String
-          "type: string"
-        when AST::Typespecs::UnsignedHyper
-          "type: uint64"
-        when AST::Typespecs::UnsignedInt
-          "type: uint32"
-        when AST::Typespecs::Simple
-          if type.primitive?
-            "type: #{name(type).downcase}"
-          elsif LESS_INFO_TYPES.include?(name(type).downcase)
-            "type: #{name(type).underscore.camelize}"
-          else
+        base_reference =
+          case type
+          when AST::Typespecs::Bool
+            'type: boolean'
+          when AST::Typespecs::Double
+            'type: double'
+          when AST::Typespecs::Float
+            'type: float'
+          when AST::Typespecs::Hyper
+            'type: long'
+          when AST::Typespecs::Int
+            'type: integer'
+          when AST::Typespecs::Opaque
+            'type: array'
+          when AST::Typespecs::String
+            'type: string'
+          when AST::Typespecs::UnsignedHyper
+            'type: uint64'
+          when AST::Typespecs::UnsignedInt
+            'type: uint32'
+          when AST::Typespecs::Simple
+            if type.primitive?
+              "type: #{name(type).downcase}"
+            elsif LESS_INFO_TYPES.include?(name(type).downcase)
+              "type: #{name(type).underscore.camelize}"
+            else
+              "$ref: '#/components/schemas/#{name type}'"
+            end
+          when AST::Definitions::Base, AST::Concerns::NestedDefinition
             "$ref: '#/components/schemas/#{name type}'"
+          else
+            raise "Unknown reference type: #{type.class.name}, #{type.class.ancestors}"
           end
-        when AST::Definitions::Base, AST::Concerns::NestedDefinition
-          "$ref: '#/components/schemas/#{name type}'"
+
+        case type.sub_type
+        when :array, :var_array
+          # TODO: Indentation handling should not be the part of this logic
+          "type: array\nitems:\n  #{base_reference}"
         else
-          raise "Unknown reference type: #{type.class.name}, #{type.class.ancestors}"
+          base_reference
         end
       end
 

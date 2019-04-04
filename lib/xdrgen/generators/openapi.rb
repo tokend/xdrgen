@@ -145,9 +145,12 @@ module Xdrgen
                 end
               end
 
-              union&.discriminant_type&.members&.each do |member|
-                unless union.case_processed?(member.name)
-                  @generated.puts "- $ref: '#/components/schemas/#{name(union)}Arm#{member.name.underscore.camelize}'"
+              # Render all discriminant type's values, which are not processed if default arm exists
+              if union.default_arm
+                union&.discriminant_type&.members&.each do |member|
+                  unless union.case_processed?(member.name)
+                    @generated.puts "- $ref: '#/components/schemas/#{name(union)}Arm#{member.name.underscore.camelize}'"
+                  end
                 end
               end
             end

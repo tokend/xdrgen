@@ -312,6 +312,7 @@ module Xdrgen
 			// marshal as mask
 			result := flag{
 				Value: int32(e),
+                               Flags: make([]flagValue, 0),
 			}
 			for _, value := range #{name enum}All {
 				if (value & e) == value {

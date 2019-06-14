@@ -10,6 +10,7 @@ module Xdrgen::Generators
   autoload :Swift
   autoload :Kotlin
   autoload :Openapi
+  autoload :Cpp
 
   def self.for_language(language)
     const_get language.to_s.classify

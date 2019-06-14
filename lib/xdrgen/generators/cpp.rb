@@ -27,7 +27,7 @@ module Xdrgen
         end
 
         render_nested_definitions(out, defn)
-        render_source_comment(out, defn)
+        #render_source_comment(out, defn)
 
         @already_rendered << name(defn)
 
@@ -188,6 +188,18 @@ module Xdrgen
       def render_const(out, const)
         out.puts "const #{name const} = #{const.value}"
         out.break
+      end
+
+      def name(named)
+        parent = name named.parent_defn if named.is_a?(AST::Concerns::NestedDefinition)
+
+        base = if named.respond_to?(:name)
+                 named.name
+               else
+                 named.text_value
+               end
+
+        "#{parent}#{base.underscore.camelize}"
       end
     end
   end

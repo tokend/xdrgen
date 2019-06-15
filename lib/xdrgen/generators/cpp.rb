@@ -151,12 +151,19 @@ module Xdrgen
             next if arm.void?
             header_out.puts "#{reference arm.type} #{name arm};"
           end
+
+          header_out.puts "#{reference union.discriminant.type}"
+          header_out.puts "#{name union.discriminant}() const;"
+
           header_out.puts "};"
         end
         header_out.puts "};"
         header_out.break
 
-
+        cpp_out.puts "#{reference union.discriminant.type}"
+        cpp_out.puts "#{name union}::#{name union.discriminant}() const \n{"
+        cpp_out.puts "return #{reference union.discriminant.type}(type_);\n}"
+        cpp_out.break
       end
 
       def render_typedef(header_out, cpp_out, typedef)

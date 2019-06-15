@@ -191,15 +191,7 @@ module Xdrgen
       end
 
       def name(named)
-        parent = name named.parent_defn if named.is_a?(AST::Concerns::NestedDefinition)
-
-        base = if named.respond_to?(:name)
-                 named.name
-               else
-                 named.text_value
-               end
-
-        "#{parent}#{base.underscore.camelize}"
+        named.name
       end
     end
   end

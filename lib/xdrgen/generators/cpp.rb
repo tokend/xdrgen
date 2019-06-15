@@ -5,18 +5,21 @@ module Xdrgen
 
       def generate
         @already_rendered = []
-        path = "#{@namespace}_generated.h"
-        out = @output.open(path)
+        header_path = "#{@namespace}_generated.h"
+        header_out = @output.open(header_path)
 
-        render_definitions(out, @top)
+        cpp_path = "#{@namespace}_generated.cpp"
+        cpp_out = @output.open(cpp_path)
+
+        render_definitions(header_out, cpp_out, @top)
       end
 
-      def render_definitions(out, node)
-        node.definitions.each{|n| render_definition out, n }
-        node.namespaces.each{|n| render_definitions out, n }
+      def render_definitions(header_out, cpp_out, node)
+        node.definitions.each{|n| render_definition header_out, cpp_out, n }
+        node.namespaces.each{|n| render_definitions header_out, cpp_out, n }
       end
 
-      def render_definition(out, defn)
+      def render_definition(header_out, cpp_out, defn)
         if @already_rendered.include? name(defn)
 
           unless defn.is_a?(AST::Definitions::Namespace)
@@ -26,41 +29,41 @@ module Xdrgen
           return
         end
 
-        render_nested_definitions(out, defn)
+        render_nested_definitions(header_out, cpp_out, defn)
         #render_source_comment(out, defn)
 
         @already_rendered << name(defn)
 
         case defn
         when AST::Definitions::Struct ;
-          render_struct out, defn
+          render_struct header_out, cpp_out, defn
         when AST::Definitions::Enum ;
-          render_enum out, defn
+          render_enum header_out, cpp_out, defn
         when AST::Definitions::Union ;
-          render_union out, defn
+          render_union header_out, cpp_out, defn
         when AST::Definitions::Typedef ;
-          render_typedef out, defn
+          render_typedef header_out, cpp_out, defn
         when AST::Definitions::Const ;
-          render_const out, defn
+          render_const header_out, cpp_out, defn
         end
       end
 
-      def render_nested_definitions(out, defn)
+      def render_nested_definitions(header_out, cpp_out, defn)
         return unless defn.respond_to? :nested_definitions
-        defn.nested_definitions.each{|ndefn| render_definition out, ndefn}
+        defn.nested_definitions.each{|ndefn| render_definition header_out, cpp_out, ndefn}
       end
 
-      def render_struct(out, struct)
-        out.puts "struct #{name struct} : xdr_abstract \n{\n"
-        out.indent do
+      def render_struct(header_out, cpp_out, struct)
+        header_out.puts "struct #{name struct} : xdr_abstract \n{\n"
+        header_out.indent do
 
           struct.members.each do |m|
-            out.puts "#{reference(m.declaration.type)} #{name m};"
+            header_out.puts "#{reference(m.declaration.type)} #{name m};"
           end
 
         end
-        out.puts "};"
-        out.break
+        header_out.puts "};"
+        header_out.break
       end
 
       def reference(type)
@@ -121,43 +124,43 @@ module Xdrgen
 
       end
 
-      def render_enum(out, enum)
+      def render_enum(header_out, cpp_out, enum)
         # render the "enum"
-        out.puts "enum class #{name enum} : std::int32_t \n{\n"
-        out.indent do
+        header_out.puts "enum class #{name enum} : std::int32_t \n{\n"
+        header_out.indent do
           first_member = enum.members.first
-          out.puts "#{name first_member} = #{first_member.value},"
+          header_out.puts "#{name first_member} = #{first_member.value},"
 
           rest_members = enum.members.drop(1)
           rest_members.each do |m|
-            out.puts "#{name m} = #{m.value},"
+            header_out.puts "#{name m} = #{m.value},"
           end
         end
-        out.puts "};"
+        header_out.puts "};"
       end
 
 
-      def render_union(out, union)
+      def render_union(header_out, cpp_out, union)
 
-        out.puts "struct #{name union} : xdr_abstract \n{\n"
-        out.indent do
-          out.puts "int32_t type_;"
-          out.puts "union \n{"
+        header_out.puts "struct #{name union} : xdr_abstract \n{\n"
+        header_out.indent do
+          header_out.puts "int32_t type_;"
+          header_out.puts "union \n{"
 
           union.arms.each do |arm|
             next if arm.void?
-            out.puts "#{reference arm.type} #{name arm};"
+            header_out.puts "#{reference arm.type} #{name arm};"
           end
-          out.puts "};"
+          header_out.puts "};"
         end
-        out.puts "};"
-        out.break
+        header_out.puts "};"
+        header_out.break
 
 
       end
 
-      def render_typedef(out, typedef)
-        out.puts "using #{name typedef} = #{reference typedef.declaration.type};"
+      def render_typedef(header_out, cpp_out, typedef)
+        header_out.puts "using #{name typedef} = #{reference typedef.declaration.type};"
 
 
         # write sizing restrictions
@@ -181,13 +184,13 @@ module Xdrgen
           #render_union_typedef out, typedef, resolved
         end
 
-        out.break
+        header_out.break
       end
 
 
-      def render_const(out, const)
-        out.puts "const #{name const} = #{const.value}"
-        out.break
+      def render_const(header_out, cpp_out, const)
+        header_out.puts "const #{name const} = #{const.value}"
+        header_out.break
       end
 
       def name(named)

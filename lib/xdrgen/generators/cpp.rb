@@ -194,7 +194,10 @@ module Xdrgen
       end
 
       def name(named)
-        named.name
+        result = named.name
+        result = "#{name named.parent_defn}#{named.name.underscore.camelize}" if named.is_a?(AST::Concerns::NestedDefinition)
+
+        "#{result}"
       end
     end
   end

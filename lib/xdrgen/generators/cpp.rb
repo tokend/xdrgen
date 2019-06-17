@@ -150,6 +150,9 @@ module Xdrgen
           union.arms.each do |arm|
             next if arm.void?
             header_out.puts "#{reference arm.type} #{name arm};"
+
+            cpp_out.puts "#{name union}&\n#{name union}::#{name union.discriminant}(#{reference union.discriminant.type} d)"
+            cpp_out.puts "{\n  type_ = int32_t(d);\n}"
           end
 
           header_out.puts "#{reference union.discriminant.type}"

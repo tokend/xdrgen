@@ -58,9 +58,7 @@ module Xdrgen
         header_out.indent do
 
           struct.members.each do |m|
-            unless @already_rendered.include? name(m.declaration.type)
-              render_definition(header_out, cpp_out, m.declaration.type)
-            end
+            try_render_defn(header_out, cpp_out, m.declaration.type)
 
             header_out.puts "#{reference(m.declaration.type)} #{name m};"
 
@@ -69,6 +67,23 @@ module Xdrgen
         end
         header_out.puts "};"
         header_out.break
+      end
+
+      def try_render_defn(header_out, cpp_out, defn)
+        if @already_rendered.include? name(m.declaration.type)
+          return
+        end
+
+        need_render = case defn
+        when AST::Typespecs::Simple
+          defn
+        when AST::Definitions::Base
+          defn
+        else
+          raise "Unexpected defn type: #{defn.class.name}, #{defn.class.ancestors}"
+        end
+
+        render_definition(header_out, cpp_out, need_render)
       end
 
       def reference(type)

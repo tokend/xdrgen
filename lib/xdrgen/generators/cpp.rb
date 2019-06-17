@@ -54,11 +54,14 @@ module Xdrgen
       end
 
       def render_struct(header_out, cpp_out, struct)
+        struct.members.each do |m|
+          try_render_defn(header_out, cpp_out, m.declaration.type)
+        end
+
         header_out.puts "struct #{name struct} : xdr_abstract \n{\n"
         header_out.indent do
 
           struct.members.each do |m|
-            try_render_defn(header_out, cpp_out, m.declaration.type)
 
             header_out.puts "#{reference(m.declaration.type)} #{name m};"
 
@@ -70,7 +73,7 @@ module Xdrgen
       end
 
       def try_render_defn(header_out, cpp_out, defn)
-        if @already_rendered.include? name(m.declaration.type)
+        if @already_rendered.include? name(defn)
           return
         end
 

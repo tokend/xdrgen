@@ -73,6 +73,27 @@ module Xdrgen
       end
 
       def try_render_defn(header_out, cpp_out, defn)
+        case type
+        when AST::Typespecs::Bool
+          return
+        when AST::Typespecs::Double
+          return
+        when AST::Typespecs::Float
+          return
+        when AST::Typespecs::Hyper
+          return
+        when AST::Typespecs::Int
+          return
+        when AST::Typespecs::Opaque
+          return
+        when AST::Typespecs::String
+          return
+        when AST::Typespecs::UnsignedHyper
+          return
+        when AST::Typespecs::UnsignedInt
+          return
+        end
+
         if @already_rendered.include? name(defn)
           return
         end

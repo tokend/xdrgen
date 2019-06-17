@@ -150,14 +150,13 @@ module Xdrgen
           header_out.puts "union \n{"
 
 
-
           union.arms.each do |arm|
             next if arm.void?
             header_out.puts "#{reference arm.type} #{name arm};"
 
-            methods_def << "#{reference arm.type}&\n#{(reference arm.type).camelize(:lower)}();"
+            methods_def << "#{reference arm.type}&\n#{name arm}();\n"
 
-            cpp_out.puts "#{reference arm.type}&\n#{name union}::#{(reference arm.type).camelize(:lower)}() \n{"
+            cpp_out.puts "#{reference arm.type}&\n#{name union}::#{name arm}() \n{"
             cpp_out.puts " return #{name arm};\n}"
           end
 
@@ -167,7 +166,7 @@ module Xdrgen
         header_out.puts "#{reference union.discriminant.type}"
         header_out.puts "#{name union.discriminant}() const;"
 
-        header_out.puts "#{name union}&\n#{name union.discriminant}(#{reference union.discriminant.type} d)"
+        header_out.puts "#{name union}&\n#{name union.discriminant}(#{reference union.discriminant.type} d);"
 
         header_out.puts methods_def
 

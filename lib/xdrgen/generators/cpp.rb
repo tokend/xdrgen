@@ -58,7 +58,12 @@ module Xdrgen
         header_out.indent do
 
           struct.members.each do |m|
+            unless @already_rendered.include? name(m.declaration.type)
+              render_definition(header_out, cpp_out, m.declaration.type)
+            end
+
             header_out.puts "#{reference(m.declaration.type)} #{name m};"
+
           end
 
         end

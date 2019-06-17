@@ -11,7 +11,9 @@ module Xdrgen
         cpp_path = "#{@namespace}_generated.cpp"
         cpp_out = @output.open(cpp_path)
 
+        render_top_matter header_out, cpp_out
         render_definitions(header_out, cpp_out, @top)
+        render_bottom_matter header_out cpp_out
       end
 
       def render_definitions(header_out, cpp_out, node)
@@ -165,10 +167,10 @@ module Xdrgen
         methods_def = ""
 
         header_out.puts "struct #{name union} : xdr_abstract \n{\n"
+        header_out.puts "private:"
         header_out.indent do
           header_out.puts "int32_t type_;"
           header_out.puts "union \n{"
-
 
           union.arms.each do |arm|
             next if arm.void?
@@ -177,11 +179,13 @@ module Xdrgen
             methods_def << "#{reference arm.type}&\n#{name arm}();\n"
 
             cpp_out.puts "#{reference arm.type}&\n#{name union}::#{name arm}() \n{"
-            cpp_out.puts " return #{name arm};\n}"
+            cpp_out.puts " return uni.#{name arm};\n}"
           end
 
-          header_out.puts "};"
+          header_out.puts "} uni;"
         end
+
+        header_out.puts "public:"
 
         header_out.puts "#{reference union.discriminant.type}"
         header_out.puts "#{name union.discriminant}() const;"
@@ -244,6 +248,19 @@ module Xdrgen
         result = "#{name named.parent_defn}#{named.name.underscore.camelize}" if named.is_a?(AST::Concerns::NestedDefinition)
 
         "#{result}"
+      end
+
+      def render_top_matter(header_out, cpp_out)
+        header_out.puts "#include \"lib/cpp-serialize/src/types.h\"\n"
+        header_out.puts "namespace xdr \n{\n"
+
+        cpp_out.puts "#include \"xdr_generated.h\"\n"
+        cpp_out.puts "namespace xdr \n{\n"
+      end
+
+      def render_bottom_matter(header_out, cpp_out)
+        header_out.puts "\n}"
+        cpp_out.puts "\n}"
       end
     end
   end

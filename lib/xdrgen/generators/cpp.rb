@@ -55,13 +55,7 @@ module Xdrgen
 
       def render_struct(header_out, cpp_out, struct)
         struct.members.each do |m|
-          next unless m&.declaration&.type&.respond_to? :name
-
-          defn = @top.find_definition(name m.declaration.type)
-          next if defn.nil?
-
-          puts "struct meber: #{name defn}"
-          try_render_defn(header_out, cpp_out, defn)
+          try_render_type_defn(header_out, cpp_out, m.declaration.type)
         end
 
         header_out.puts "struct #{name struct} : xdr_abstract \n{\n"
@@ -78,7 +72,14 @@ module Xdrgen
         header_out.break
       end
 
-      def try_render_defn(header_out, cpp_out, defn)
+      def try_render_type_defn(header_out, cpp_out, type)
+        return unless type&.respond_to? :name
+
+        defn = @top.find_definition(name type)
+        return if defn.nil?
+
+        puts "struct meber: #{name defn}"
+
         unless @already_rendered.include? name(defn)
           render_definition(header_out, cpp_out, defn)
         end
@@ -159,6 +160,7 @@ module Xdrgen
 
 
       def render_union(header_out, cpp_out, union)
+        try_render_type_defn header_out, cpp_out, union.discriminant.type
 
         methods_def = ""
 
@@ -202,6 +204,8 @@ module Xdrgen
       end
 
       def render_typedef(header_out, cpp_out, typedef)
+        try_render_type_defn header_out, cpp_out, typedef.declaration.type
+
         header_out.puts "using #{name typedef} = #{reference typedef.declaration.type};"
 
 

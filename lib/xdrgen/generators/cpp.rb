@@ -55,7 +55,7 @@ module Xdrgen
 
       def render_struct(header_out, cpp_out, struct)
         struct.members.each do |m|
-          try_render_defn(header_out, cpp_out, m.declaration.type)
+          try_render_defn(header_out, cpp_out, m)
         end
 
         header_out.puts "struct #{name struct} : xdr_abstract \n{\n"
@@ -73,41 +73,9 @@ module Xdrgen
       end
 
       def try_render_defn(header_out, cpp_out, defn)
-        case defn
-        when AST::Typespecs::Bool
-          return
-        when AST::Typespecs::Double
-          return
-        when AST::Typespecs::Float
-          return
-        when AST::Typespecs::Hyper
-          return
-        when AST::Typespecs::Int
-          return
-        when AST::Typespecs::Opaque
-          return
-        when AST::Typespecs::String
-          return
-        when AST::Typespecs::UnsignedHyper
-          return
-        when AST::Typespecs::UnsignedInt
-          return
+        unless @already_rendered.include? name(defn)
+          render_definition(header_out, cpp_out, defn)
         end
-
-        if @already_rendered.include? name(defn)
-          return
-        end
-
-        need_render = case defn
-        when AST::Typespecs::Simple
-          defn
-        when AST::Definitions::Base
-          defn
-        else
-          raise "Unexpected defn type: #{defn.class.name}, #{defn.class.ancestors}"
-        end
-
-        render_definition(header_out, cpp_out, need_render)
       end
 
       def reference(type)

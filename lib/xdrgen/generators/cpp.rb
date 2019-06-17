@@ -73,7 +73,7 @@ module Xdrgen
       end
 
       def try_render_defn(header_out, cpp_out, defn)
-        case type
+        case defn
         when AST::Typespecs::Bool
           return
         when AST::Typespecs::Double

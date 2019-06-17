@@ -142,30 +142,45 @@ module Xdrgen
 
       def render_union(header_out, cpp_out, union)
 
+        methods_def = ""
+
         header_out.puts "struct #{name union} : xdr_abstract \n{\n"
         header_out.indent do
           header_out.puts "int32_t type_;"
           header_out.puts "union \n{"
 
+
+
           union.arms.each do |arm|
             next if arm.void?
             header_out.puts "#{reference arm.type} #{name arm};"
 
-            cpp_out.puts "#{name union}&\n#{name union}::#{name union.discriminant}(#{reference union.discriminant.type} d)"
-            cpp_out.puts "{\n  type_ = int32_t(d);\n}"
-          end
+            methods_def << "#{reference arm.type}&\n#{(reference arm.type).camelize(:lower)}();"
 
-          header_out.puts "#{reference union.discriminant.type}"
-          header_out.puts "#{name union.discriminant}() const;"
+            cpp_out.puts "#{reference arm.type}&\n#{name union}::#{(reference arm.type).camelize(:lower)}() \n{"
+            cpp_out.puts " return #{name arm};\n}"
+          end
 
           header_out.puts "};"
         end
+
+        header_out.puts "#{reference union.discriminant.type}"
+        header_out.puts "#{name union.discriminant}() const;"
+
+        header_out.puts "#{name union}&\n#{name union.discriminant}(#{reference union.discriminant.type} d)"
+
+        header_out.puts methods_def
+
         header_out.puts "};"
         header_out.break
 
         cpp_out.puts "#{reference union.discriminant.type}"
         cpp_out.puts "#{name union}::#{name union.discriminant}() const \n{"
         cpp_out.puts "return #{reference union.discriminant.type}(type_);\n}"
+
+        cpp_out.puts "#{name union}&\n#{name union}::#{name union.discriminant}(#{reference union.discriminant.type} d)"
+        cpp_out.puts "{\n  type_ = int32_t(d);\n  return *this;\n}"
+
         cpp_out.break
       end
 

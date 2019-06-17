@@ -55,7 +55,13 @@ module Xdrgen
 
       def render_struct(header_out, cpp_out, struct)
         struct.members.each do |m|
-          try_render_defn(header_out, cpp_out, m)
+          next unless m&.declaration&.type&.respond_to? :name
+
+          defn = @top.find_definition(name m.declaration.type)
+          next if defn.nil?
+
+          puts "struct meber: #{name defn}"
+          try_render_defn(header_out, cpp_out, defn)
         end
 
         header_out.puts "struct #{name struct} : xdr_abstract \n{\n"

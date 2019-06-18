@@ -69,6 +69,36 @@ module Xdrgen
 
           end
 
+          header_out.puts "bool\noperator==(xdr_abstract const& other) override;\n"
+          header_out.puts "private:"
+          header_out.puts "bool\nfrom_bytes(unmarshaler& u) override;\n"
+          header_out.puts "bool\nto_bytes(marshaler& m) override;\n"
+
+          cpp_out.puts "bool\n#{name struct}::from_bytes(unmarshaler& u)\n{"
+          struct.members.each do |m|
+            cpp_out.puts "bool ok = u.from_bytes(#{name m});"
+            cpp_out.puts "if (!ok)\n{"
+            cpp_out.puts "return false;\n}\n"
+          end
+          cpp_out.puts "}"
+
+          cpp_out.puts "bool\n#{name struct}::to_bytes(marshaler& m)\n{"
+          struct.members.each do |m|
+            cpp_out.puts "bool ok = m.to_bytes(#{name m});"
+            cpp_out.puts "if (!ok)\n{"
+            cpp_out.puts "return false;\n}\n"
+          end
+          cpp_out.puts "}"
+
+          cpp_out.puts "bool\n#{name struct}::operator==(xdr_abstract const& other_abstract)\n{"
+          cpp_out.puts "if (typeid(*this) != typeid(other_abstract))\n{\nreturn false;\n}"
+          cpp_out.puts "auto& other = dynamic_cast<#{name struct} const&>(other_abstract);"
+          cpp_out.puts "return true "
+          struct.members.each do |m|
+            cpp_out.puts "&& (#{name m} == other.#{name m}) "
+          end
+          cpp_out.puts ";}"
+
         end
         header_out.puts "};"
         header_out.break
@@ -251,7 +281,8 @@ module Xdrgen
       end
 
       def render_top_matter(header_out, cpp_out)
-        header_out.puts "#include \"lib/cpp-serialize/src/types.h\"\n"
+        header_out.puts "#include \"lib/cpp-serialize/src/types.h\""
+        header_out.puts "#include \"lib/cpp-serialize/src/xdr_abstract.h\"\n"
         header_out.puts "namespace xdr \n{\n"
 
         cpp_out.puts "#include \"xdr_generated.h\"\n"

@@ -13,7 +13,7 @@ module Xdrgen
 
         render_top_matter header_out, cpp_out
         render_definitions(header_out, cpp_out, @top)
-        render_bottom_matter header_out cpp_out
+        render_bottom_matter header_out, cpp_out
       end
 
       def render_definitions(header_out, cpp_out, node)

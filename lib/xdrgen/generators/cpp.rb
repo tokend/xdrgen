@@ -110,8 +110,6 @@ module Xdrgen
         defn = @top.find_definition(name type)
         return if defn.nil?
 
-        puts "struct meber: #{name defn}"
-
         unless @already_rendered.include? name(defn)
           render_definition(header_out, cpp_out, defn)
         end
@@ -243,7 +241,7 @@ module Xdrgen
         cpp_out.puts "if (!ok)\n{"
         cpp_out.puts "return false;\n}\n"
         switch_for cpp_out, union, "type_" do |arm|
-          "return #{(arm.void? ? ("u.from_bytes(uni.#{name arm})") : "true")}"
+          "return #{(arm.void? ? "true" : ("u.from_bytes(uni.#{name arm})"))}"
         end
         cpp_out.puts "}"
 
@@ -253,7 +251,7 @@ module Xdrgen
         cpp_out.puts "if (!ok)\n{"
         cpp_out.puts "return false;\n}\n"
         switch_for cpp_out, union, "type_" do |arm|
-          "return #{(arm.void? ? ("m.to_bytes(uni.#{name arm})") : "true")}"
+          "return #{(arm.void? ? "true" : ("m.to_bytes(uni.#{name arm})"))}"
         end
         cpp_out.puts "}"
 
@@ -262,7 +260,7 @@ module Xdrgen
         cpp_out.puts "auto& other = dynamic_cast<#{name union} const&>(other_abstract);"
         cpp_out.puts "if (this->type_ != other.type_)\n{\nreturn false;\n}"
         switch_for cpp_out, union, "type_" do |arm|
-          "return #{(arm.void? ? ("(this->uni.#{name arm} == other.uni.#{name arm})") : "true")}"
+          "return #{(arm.void? ? "true" : ("(this->uni.#{name arm} == other.uni.#{name arm})"))}"
         end
         cpp_out.puts "}"
 

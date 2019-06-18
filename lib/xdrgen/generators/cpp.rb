@@ -76,16 +76,16 @@ module Xdrgen
 
           cpp_out.puts "bool\n#{name struct}::from_bytes(unmarshaler& u)\n{"
           struct.members.each do |m|
-            cpp_out.puts "bool ok = u.from_bytes(#{name m});"
-            cpp_out.puts "if (!ok)\n{"
+            cpp_out.puts "bool ok#{name m} = u.from_bytes(#{name m});"
+            cpp_out.puts "if (!ok#{name m})\n{"
             cpp_out.puts "return false;\n}\n"
           end
           cpp_out.puts "}"
 
           cpp_out.puts "bool\n#{name struct}::to_bytes(marshaler& m)\n{"
           struct.members.each do |m|
-            cpp_out.puts "bool ok = m.to_bytes(#{name m});"
-            cpp_out.puts "if (!ok)\n{"
+            cpp_out.puts "bool ok#{name m} = m.to_bytes(#{name m});"
+            cpp_out.puts "if (!ok#{name m})\n{"
             cpp_out.puts "return false;\n}\n"
           end
           cpp_out.puts "}"
@@ -215,7 +215,11 @@ module Xdrgen
           header_out.puts "} uni;"
         end
 
+        header_out.puts "bool\nfrom_bytes(unmarshaler& u) override;\n"
+        header_out.puts "bool\nto_bytes(marshaler& m) override;\n"
+
         header_out.puts "public:"
+        header_out.puts "bool\noperator==(xdr_abstract const& other) override;\n"
 
         header_out.puts "#{reference union.discriminant.type}"
         header_out.puts "#{name union.discriminant}() const;"
@@ -234,7 +238,62 @@ module Xdrgen
         cpp_out.puts "#{name union}&\n#{name union}::#{name union.discriminant}(#{reference union.discriminant.type} d)"
         cpp_out.puts "{\n  type_ = int32_t(d);\n  return *this;\n}"
 
+        cpp_out.puts "bool\n#{name union}::from_bytes(unmarshaler& u)\n{"
+        cpp_out.puts "bool ok = u.from_bytes(type_);"
+        cpp_out.puts "if (!ok)\n{"
+        cpp_out.puts "return false;\n}\n"
+        switch_for cpp_out, union, "type_" do |arm|
+          "return #{(arm.void? ? ("u.from_bytes(uni.#{name arm})") : "true")}"
+        end
+        cpp_out.puts "}"
+
+
+        cpp_out.puts "bool\n#{name union}::to_bytes(marshaler& m)\n{"
+        cpp_out.puts "bool ok = u.to_bytes(type_);"
+        cpp_out.puts "if (!ok)\n{"
+        cpp_out.puts "return false;\n}\n"
+        switch_for cpp_out, union, "type_" do |arm|
+          "return #{(arm.void? ? ("m.to_bytes(uni.#{name arm})") : "true")}"
+        end
+        cpp_out.puts "}"
+
+        cpp_out.puts "bool\n#{name union}::operator==(xdr_abstract const& other_abstract)\n{"
+        cpp_out.puts "if (typeid(*this) != typeid(other_abstract))\n{\nreturn false;\n}"
+        cpp_out.puts "auto& other = dynamic_cast<#{name union} const&>(other_abstract);"
+        cpp_out.puts "if (this->type_ != other.type_)\n{\nreturn false;\n}"
+        switch_for cpp_out, union, "type_" do |arm|
+          "return #{(arm.void? ? ("(this->uni.#{name arm} == other.uni.#{name arm})") : "true")}"
+        end
+        cpp_out.puts "}"
+
         cpp_out.break
+      end
+
+      def switch_for(out, union, ident)
+        out.puts "switch #{reference union.discriminant.type}(#{ident})\n{"
+
+        union.normal_arms.each do |arm|
+          arm.cases.each do |c|
+
+            value = if c.value.is_a?(AST::Identifier)
+                      member = union.resolved_case(c)
+                      "#{name union.discriminant_type}::#{name member}"
+                    else
+                      c.value.text_value
+                    end
+
+            out.puts "    case #{value}:"
+            out.puts "      #{yield arm}"
+          end
+        end
+
+        if union.default_arm.present?
+          arm = union.default_arm
+          out.puts "    default:"
+          out.puts "      #{yield arm}"
+        end
+
+        out.puts "}"
       end
 
       def render_typedef(header_out, cpp_out, typedef)
@@ -285,7 +344,11 @@ module Xdrgen
         header_out.puts "#include \"lib/cpp-serialize/src/xdr_abstract.h\"\n"
         header_out.puts "namespace xdr \n{\n"
 
-        cpp_out.puts "#include \"xdr_generated.h\"\n"
+        cpp_out.puts "#include \"xdr_generated.h\""
+        cpp_out.puts "#include \"lib/cpp-serialize/src/unmarshaler.h\""
+        cpp_out.puts "#include \"lib/cpp-serialize/src/marshaler.h\""
+        cpp_out.puts "#include \"lib/cpp-serialize/src/unmarshaler.t.hpp\""
+        cpp_out.puts "#include \"lib/cpp-serialize/src/marshaler.t.hpp\"\n"
         cpp_out.puts "namespace xdr \n{\n"
       end
 

@@ -193,6 +193,7 @@ module Xdrgen
         try_render_type_defn header_out, cpp_out, union.discriminant.type
 
         union.arms.each do |m|
+          next if m.void?
           try_render_type_defn(header_out, cpp_out, m.type)
         end
 
@@ -342,15 +343,15 @@ module Xdrgen
       end
 
       def render_top_matter(header_out, cpp_out)
-        header_out.puts "#include \"lib/cpp-serialize/src/types.h\""
-        header_out.puts "#include \"lib/cpp-serialize/src/xdr_abstract.h\"\n"
-        header_out.puts "namespace xdr \n{\n"
+        header_out.puts "#include \"lib/xdrpp/src/types.h\""
+        header_out.puts "#include \"lib/xdrpp/src/xdr_abstract.h\"\n"
+        header_out.puts "namespace stellar \n{\n"
 
         cpp_out.puts "#include \"xdr_generated.h\""
-        cpp_out.puts "#include \"lib/cpp-serialize/src/unmarshaler.h\""
-        cpp_out.puts "#include \"lib/cpp-serialize/src/marshaler.h\""
-        cpp_out.puts "#include \"lib/cpp-serialize/src/unmarshaler.t.hpp\""
-        cpp_out.puts "#include \"lib/cpp-serialize/src/marshaler.t.hpp\"\n"
+        cpp_out.puts "#include \"lib/xdrpp/src/unmarshaler.h\""
+        cpp_out.puts "#include \"lib/xdrpp/src/marshaler.h\""
+        cpp_out.puts "#include \"lib/xdrpp/src/unmarshaler.t.hpp\""
+        cpp_out.puts "#include \"lib/xdrpp/src/marshaler.t.hpp\"\n"
         cpp_out.puts "namespace xdr \n{\n"
       end
 

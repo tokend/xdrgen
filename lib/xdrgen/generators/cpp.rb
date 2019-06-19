@@ -69,8 +69,8 @@ module Xdrgen
 
           end
 
-          header_out.puts "bool\noperator==(xdr_abstract const& other) override;\n"
-          header_out.puts "bool\noperator<(xdr_abstract const& other) override;\n"
+          header_out.puts "bool\noperator==(xdr_abstract const& other) const override;\n"
+          header_out.puts "bool\noperator<(xdr_abstract const& other) const override;\n"
           header_out.puts "private:"
           header_out.puts "bool\nfrom_bytes(unmarshaler& u) override;\n"
           header_out.puts "bool\nto_bytes(marshaler& m) override;\n"
@@ -93,7 +93,7 @@ module Xdrgen
           cpp_out.puts "return true;"
           cpp_out.puts "}"
 
-          cpp_out.puts "bool\n#{name struct}::operator==(xdr_abstract const& other_abstract)\n{"
+          cpp_out.puts "bool\n#{name struct}::operator==(xdr_abstract const& other_abstract) const\n{"
           cpp_out.puts "if (typeid(*this) != typeid(other_abstract))\n{\nreturn false;\n}"
           cpp_out.puts "auto& other = dynamic_cast<#{name struct} const&>(other_abstract);"
           cpp_out.puts "return true "
@@ -102,7 +102,7 @@ module Xdrgen
           end
           cpp_out.puts ";}"
 
-          cpp_out.puts "bool\n#{name struct}::operator<(xdr_abstract const& other_abstract)\n{"
+          cpp_out.puts "bool\n#{name struct}::operator<(xdr_abstract const& other_abstract) const\n{"
           cpp_out.puts "if (typeid(*this) != typeid(other_abstract))\n{\nthrow std::runtime_error(\"unexpected operator< invoke\");\n}"
           cpp_out.puts "auto& other = dynamic_cast<#{name struct} const&>(other_abstract);"
 
@@ -240,8 +240,8 @@ module Xdrgen
         header_out.puts "bool\nto_bytes(marshaler& m) override;\n"
 
         header_out.puts "public:"
-        header_out.puts "bool\noperator==(xdr_abstract const& other) override;\n"
-        header_out.puts "bool\noperator<(xdr_abstract const& other) override;\n"
+        header_out.puts "bool\noperator==(xdr_abstract const& other) const override;\n"
+        header_out.puts "bool\noperator<(xdr_abstract const& other) const override;\n"
 
         header_out.puts "#{reference union.discriminant.type}"
         header_out.puts "#{name union.discriminant}() const;"
@@ -282,7 +282,7 @@ module Xdrgen
         cpp_out.puts "return false;"
         cpp_out.puts "}"
 
-        cpp_out.puts "bool\n#{name union}::operator==(xdr_abstract const& other_abstract)\n{"
+        cpp_out.puts "bool\n#{name union}::operator==(xdr_abstract const& other_abstract) const\n{"
         cpp_out.puts "if (typeid(*this) != typeid(other_abstract))\n{\nreturn false;\n}"
         cpp_out.puts "auto& other = dynamic_cast<#{name union} const&>(other_abstract);"
         cpp_out.puts "if (this->type_ != other.type_)\n{\nreturn false;\n}"
@@ -291,7 +291,7 @@ module Xdrgen
         end
         cpp_out.puts "}"
 
-        cpp_out.puts "bool\n#{name union}::operator<(xdr_abstract const& other_abstract)\n{"
+        cpp_out.puts "bool\n#{name union}::operator<(xdr_abstract const& other_abstract) const\n{"
         cpp_out.puts "if (typeid(*this) != typeid(other_abstract))\n{\nthrow std::runtime_error(\"unexpected operator< invoke\");\n}"
         cpp_out.puts "auto& other = dynamic_cast<#{name union} const&>(other_abstract);"
         cpp_out.puts "if (this->type_ < other.type_) return true;"

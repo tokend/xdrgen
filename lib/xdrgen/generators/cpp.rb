@@ -200,6 +200,7 @@ module Xdrgen
         end
 
         methods_def = ""
+        const_methods_def = ""
 
         header_out.puts "struct #{name union} : xdr_abstract \n{\n"
         header_out.puts "private:"
@@ -212,8 +213,12 @@ module Xdrgen
             header_out.puts "#{reference arm.type} #{name arm};"
 
             methods_def << "#{reference arm.type}&\n#{name arm}();\n"
+            const_methods_def << "#{reference arm.type} const&\n#{name arm}() const;\n"
 
             cpp_out.puts "#{reference arm.type}&\n#{name union}::#{name arm}() \n{"
+            cpp_out.puts " return uni.#{name arm};\n}"
+
+            cpp_out.puts "#{reference arm.type} const&\n#{name union}::#{name arm}() const \n{"
             cpp_out.puts " return uni.#{name arm};\n}"
           end
 
@@ -232,6 +237,7 @@ module Xdrgen
         header_out.puts "#{name union}&\n#{name union.discriminant}(#{reference union.discriminant.type} d);"
 
         header_out.puts methods_def
+        header_out.puts const_methods_def
 
         header_out.puts "};"
         header_out.break
@@ -347,9 +353,10 @@ module Xdrgen
       end
 
       def render_top_matter(header_out, cpp_out)
+        header_out.puts "#pragma once"
         header_out.puts "#include \"lib/xdrpp/src/types.h\""
         header_out.puts "#include \"lib/xdrpp/src/xdr_abstract.h\"\n"
-        cpp_out.puts "using namespace xdr;\n"
+        header_out.puts "using namespace xdr;\n"
         header_out.puts "namespace stellar \n{\n"
 
         cpp_out.puts "#include \"xdr_generated.h\""

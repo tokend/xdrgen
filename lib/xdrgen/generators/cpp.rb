@@ -131,7 +131,7 @@ module Xdrgen
           if type.fixed?
             "opaque_array<#{type.size}>"
           else
-            "opaque_vec"
+            "opaque_vec<>"
           end
         when AST::Typespecs::Quadruple
           raise "no quadruple support for c++"
@@ -191,6 +191,10 @@ module Xdrgen
 
       def render_union(header_out, cpp_out, union)
         try_render_type_defn header_out, cpp_out, union.discriminant.type
+
+        union.arms.each do |m|
+          try_render_type_defn(header_out, cpp_out, m.type)
+        end
 
         methods_def = ""
 
@@ -268,7 +272,7 @@ module Xdrgen
       end
 
       def switch_for(out, union, ident)
-        out.puts "switch #{reference union.discriminant.type}(#{ident})\n{"
+        out.puts "switch (#{reference union.discriminant.type}(#{ident}))\n{"
 
         union.normal_arms.each do |arm|
           arm.cases.each do |c|

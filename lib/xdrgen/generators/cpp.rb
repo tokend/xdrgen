@@ -80,6 +80,7 @@ module Xdrgen
             cpp_out.puts "if (!ok#{name m})\n{"
             cpp_out.puts "return false;\n}\n"
           end
+          cpp_out.puts "return true;"
           cpp_out.puts "}"
 
           cpp_out.puts "bool\n#{name struct}::to_bytes(marshaler& m)\n{"
@@ -88,6 +89,7 @@ module Xdrgen
             cpp_out.puts "if (!ok#{name m})\n{"
             cpp_out.puts "return false;\n}\n"
           end
+          cpp_out.puts "return true;"
           cpp_out.puts "}"
 
           cpp_out.puts "bool\n#{name struct}::operator==(xdr_abstract const& other_abstract)\n{"
@@ -246,18 +248,20 @@ module Xdrgen
         cpp_out.puts "if (!ok)\n{"
         cpp_out.puts "return false;\n}\n"
         switch_for cpp_out, union, "type_" do |arm|
-          "return #{(arm.void? ? "true" : ("u.from_bytes(uni.#{name arm})"))}"
+          "return #{(arm.void? ? "true" : ("u.from_bytes(uni.#{name arm})"))};"
         end
+        cpp_out.puts "return false;"
         cpp_out.puts "}"
 
 
         cpp_out.puts "bool\n#{name union}::to_bytes(marshaler& m)\n{"
-        cpp_out.puts "bool ok = u.to_bytes(type_);"
+        cpp_out.puts "bool ok = m.to_bytes(type_);"
         cpp_out.puts "if (!ok)\n{"
         cpp_out.puts "return false;\n}\n"
         switch_for cpp_out, union, "type_" do |arm|
-          "return #{(arm.void? ? "true" : ("m.to_bytes(uni.#{name arm})"))}"
+          "return #{(arm.void? ? "true" : ("m.to_bytes(uni.#{name arm})"))};"
         end
+        cpp_out.puts "return false;"
         cpp_out.puts "}"
 
         cpp_out.puts "bool\n#{name union}::operator==(xdr_abstract const& other_abstract)\n{"
@@ -265,7 +269,7 @@ module Xdrgen
         cpp_out.puts "auto& other = dynamic_cast<#{name union} const&>(other_abstract);"
         cpp_out.puts "if (this->type_ != other.type_)\n{\nreturn false;\n}"
         switch_for cpp_out, union, "type_" do |arm|
-          "return #{(arm.void? ? "true" : ("(this->uni.#{name arm} == other.uni.#{name arm})"))}"
+          "return #{(arm.void? ? "true" : ("(this->uni.#{name arm} == other.uni.#{name arm})"))};"
         end
         cpp_out.puts "}"
 
@@ -345,6 +349,7 @@ module Xdrgen
       def render_top_matter(header_out, cpp_out)
         header_out.puts "#include \"lib/xdrpp/src/types.h\""
         header_out.puts "#include \"lib/xdrpp/src/xdr_abstract.h\"\n"
+        cpp_out.puts "using namespace xdr;\n"
         header_out.puts "namespace stellar \n{\n"
 
         cpp_out.puts "#include \"xdr_generated.h\""
@@ -352,7 +357,8 @@ module Xdrgen
         cpp_out.puts "#include \"lib/xdrpp/src/marshaler.h\""
         cpp_out.puts "#include \"lib/xdrpp/src/unmarshaler.t.hpp\""
         cpp_out.puts "#include \"lib/xdrpp/src/marshaler.t.hpp\"\n"
-        cpp_out.puts "namespace xdr \n{\n"
+        cpp_out.puts "using namespace xdr;\n"
+        cpp_out.puts "namespace stellar \n{\n"
       end
 
       def render_bottom_matter(header_out, cpp_out)

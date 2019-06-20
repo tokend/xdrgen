@@ -71,6 +71,8 @@ module Xdrgen
 
           header_out.puts "bool\noperator==(xdr_abstract const& other) const override;\n"
           header_out.puts "bool\noperator<(xdr_abstract const& other) const override;\n"
+          header_out.puts "#{name struct}() {}"
+          header_out.puts "~#{name struct}() {}\n"
           header_out.puts "private:"
           header_out.puts "bool\nfrom_bytes(unmarshaler& u) override;\n"
           header_out.puts "bool\nto_bytes(marshaler& m) override;\n"
@@ -242,6 +244,8 @@ module Xdrgen
         header_out.puts "public:"
         header_out.puts "bool\noperator==(xdr_abstract const& other) const override;\n"
         header_out.puts "bool\noperator<(xdr_abstract const& other) const override;\n"
+        header_out.puts "#{name union}() {}"
+        header_out.puts "~#{name union}() {}\n"
 
         header_out.puts "#{reference union.discriminant.type}"
         header_out.puts "#{name union.discriminant}() const;"

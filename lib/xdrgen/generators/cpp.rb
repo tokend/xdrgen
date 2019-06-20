@@ -72,6 +72,27 @@ module Xdrgen
           header_out.puts "bool\noperator==(xdr_abstract const& other) const override;\n"
           header_out.puts "bool\noperator<(xdr_abstract const& other) const override;\n"
           header_out.puts "#{name struct}() {}"
+          header_out.puts "#{name struct}("
+          first = true
+          struct.members.each do |m|
+            if first
+              first = false
+            else
+              header_out.puts ","
+            end
+            header_out.puts "#{reference(m.declaration.type)} const& #{name m}"
+          end
+          header_out.puts ") : "
+          first = true
+          struct.members.each do |m|
+            if first
+              first = false
+            else
+              header_out.puts ","
+            end
+            header_out.puts "#{name m}(#{name m})"
+          end
+          header_out.puts "{}"
           header_out.puts "~#{name struct}() {}\n"
           header_out.puts "private:"
           header_out.puts "bool\nfrom_bytes(unmarshaler& u) override;\n"

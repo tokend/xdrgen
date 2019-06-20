@@ -221,19 +221,19 @@ module Xdrgen
 
           union.arms.each do |arm|
             next if arm.void?
-            header_out.puts "#{reference arm.type} #{name arm};"
+            header_out.puts "#{reference arm.type} #{name arm}_;"
 
             methods_def << "#{reference arm.type}&\n#{name arm}();\n"
             const_methods_def << "#{reference arm.type} const&\n#{name arm}() const;\n"
 
             cpp_out.puts "#{reference arm.type}&\n#{name union}::#{name arm}() \n{"
-            cpp_out.puts " return uni.#{name arm};\n}"
+            cpp_out.puts " return #{name arm}_;\n}"
 
             cpp_out.puts "#{reference arm.type} const&\n#{name union}::#{name arm}() const \n{"
-            cpp_out.puts " return uni.#{name arm};\n}"
+            cpp_out.puts " return #{name arm}_;\n}"
           end
 
-          header_out.puts "} uni;"
+          header_out.puts "};"
         end
 
         header_out.puts "bool\nfrom_bytes(unmarshaler& u) override;\n"
@@ -266,7 +266,7 @@ module Xdrgen
         cpp_out.puts "if (!ok)\n{"
         cpp_out.puts "return false;\n}\n"
         switch_for cpp_out, union, "type_" do |arm|
-          "return #{(arm.void? ? "true" : ("u.from_bytes(uni.#{name arm})"))};"
+          "return #{(arm.void? ? "true" : ("u.from_bytes(#{name arm}_)"))};"
         end
         cpp_out.puts "return false;"
         cpp_out.puts "}"
@@ -277,7 +277,7 @@ module Xdrgen
         cpp_out.puts "if (!ok)\n{"
         cpp_out.puts "return false;\n}\n"
         switch_for cpp_out, union, "type_" do |arm|
-          "return #{(arm.void? ? "true" : ("m.to_bytes(uni.#{name arm})"))};"
+          "return #{(arm.void? ? "true" : ("m.to_bytes(#{name arm}_)"))};"
         end
         cpp_out.puts "return false;"
         cpp_out.puts "}"
@@ -287,7 +287,7 @@ module Xdrgen
         cpp_out.puts "auto& other = dynamic_cast<#{name union} const&>(other_abstract);"
         cpp_out.puts "if (this->type_ != other.type_)\n{\nreturn false;\n}"
         switch_for cpp_out, union, "type_" do |arm|
-          "return #{(arm.void? ? "true" : ("(this->uni.#{name arm} == other.uni.#{name arm})"))};"
+          "return #{(arm.void? ? "true" : ("(this->#{name arm}_ == other.#{name arm}_)"))};"
         end
         cpp_out.puts "}"
 
@@ -297,7 +297,7 @@ module Xdrgen
         cpp_out.puts "if (this->type_ < other.type_) return true;"
         cpp_out.puts "if (other.type_ < this->type_) return false;"
         switch_for cpp_out, union, "type_" do |arm|
-          "return #{(arm.void? ? "false" : ("(this->uni.#{name arm} < other.uni.#{name arm})"))};"
+          "return #{(arm.void? ? "false" : ("(this->#{name arm}_ < other.#{name arm}_)"))};"
         end
         cpp_out.puts "}"
 

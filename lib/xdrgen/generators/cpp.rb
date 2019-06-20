@@ -265,6 +265,12 @@ module Xdrgen
         header_out.puts "public:"
         header_out.puts "bool\noperator==(xdr_abstract const& other) const override;\n"
         header_out.puts "bool\noperator<(xdr_abstract const& other) const override;\n"
+        header_out.puts "#{name union}&\noperator=(#{name union} const& other){"
+        header_out.puts "type_ = other.type_;"
+        switch_for header_out, union, "type_" do |arm|
+          "#{(arm.void? ? "" : ("#{name arm}_ = other.#{name arm}_;\n"))}break;"
+        end
+        header_out.puts "}"
         header_out.puts "#{name union}() {}"
         header_out.puts "~#{name union}() {}\n"
         header_out.puts "#{name union}(#{name union} const& other) : type_(other.type_) {"

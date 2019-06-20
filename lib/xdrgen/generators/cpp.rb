@@ -269,7 +269,7 @@ module Xdrgen
         header_out.puts "~#{name union}() {}\n"
         header_out.puts "#{name union}(#{name union} const& other) : type_(other.type_) {"
         switch_for header_out, union, "type_" do |arm|
-          "#{(arm.void? ? "" : ("#{name arm}_(other.#{name arm}_);\n"))}break;"
+          "#{(arm.void? ? "" : ("#{name arm}_ = other.#{name arm}_;\n"))}break;"
         end
         header_out.puts "}"
 

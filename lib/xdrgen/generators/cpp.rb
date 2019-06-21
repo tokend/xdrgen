@@ -229,6 +229,16 @@ module Xdrgen
           end
         end
         header_out.puts "};"
+
+        header_out.puts "} namespace xdr {"
+        header_out.puts "template<> struct xdr_traits<s::tellar::LedgerVersion>\n{"
+        header_out.puts "static const std::vector<int32_t>& enum_values()\n{"
+        header_out.puts "static const std::vector<int32_t> _xdr_enum_vec = {"
+        enum.members.each do |m|
+          header_out.puts "(int32_t)::stellar::LedgerVersion::#{name m},"
+        end
+        header_out.puts "};"
+        header_out.puts "return _xdr_enum_vec;"
       end
 
 

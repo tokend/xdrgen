@@ -231,14 +231,15 @@ module Xdrgen
         header_out.puts "};"
 
         header_out.puts "} namespace xdr {"
-        header_out.puts "template<> struct xdr_traits<s::tellar::LedgerVersion>\n{"
+        header_out.puts "template<> struct xdr_traits<::stellar::LedgerVersion>\n{"
         header_out.puts "static const std::vector<int32_t>& enum_values()\n{"
         header_out.puts "static const std::vector<int32_t> _xdr_enum_vec = {"
         enum.members.each do |m|
           header_out.puts "(int32_t)::stellar::LedgerVersion::#{name m},"
         end
-        header_out.puts "};"
         header_out.puts "return _xdr_enum_vec;"
+        header_out.puts "};"
+        header_out.puts "} namespace stellar {"
       end
 
 
@@ -437,18 +438,18 @@ module Xdrgen
 
       def render_top_matter(header_out, cpp_out)
         header_out.puts "#pragma once"
-        header_out.puts "#include \"lib/xdrpp/src/types.h\""
-        header_out.puts "#include \"lib/xdrpp/src/xdr_abstract.h\"\n"
+        header_out.puts "#include \"cpp-serialize/src/types.h\""
+        header_out.puts "#include \"cpp-serialize/src/xdr_abstract.h\"\n"
         header_out.puts "using namespace xdr;\n"
         header_out.puts "namespace stellar \n{\n"
 
         cpp_out.puts "#include \"xdr_generated.h\""
-        cpp_out.puts "#include \"lib/xdrpp/src/unmarshaler.h\""
-        cpp_out.puts "#include \"lib/xdrpp/src/marshaler.h\""
-        cpp_out.puts "#include \"lib/xdrpp/src/measurer.h\""
-        cpp_out.puts "#include \"lib/xdrpp/src/unmarshaler.t.hpp\""
-        cpp_out.puts "#include \"lib/xdrpp/src/marshaler.t.hpp\""
-        cpp_out.puts "#include \"lib/xdrpp/src/measurer.t.hpp\"\n"
+        cpp_out.puts "#include \"cpp-serialize/src/unmarshaler.h\""
+        cpp_out.puts "#include \"cpp-serialize/src/marshaler.h\""
+        cpp_out.puts "#include \"cpp-serialize/src/measurer.h\""
+        cpp_out.puts "#include \"cpp-serialize/src/unmarshaler.t.hpp\""
+        cpp_out.puts "#include \"cpp-serialize/src/marshaler.t.hpp\""
+        cpp_out.puts "#include \"cpp-serialize/src/measurer.t.hpp\"\n"
         cpp_out.puts "using namespace xdr;\n"
         cpp_out.puts "namespace stellar \n{\n"
       end

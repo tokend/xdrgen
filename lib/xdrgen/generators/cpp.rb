@@ -97,7 +97,7 @@ module Xdrgen
           header_out.puts "private:"
           header_out.puts "bool\nfrom_bytes(unmarshaler& u) override;\n"
           header_out.puts "bool\nto_bytes(marshaler& m) override;\n"
-          header_out.puts "void\ncount_size(measurer& m) override;\n"
+          header_out.puts "void\ncount_size(measurer& m) const override;\n"
 
           cpp_out.puts "bool\n#{name struct}::from_bytes(unmarshaler& u)\n{"
           struct.members.each do |m|
@@ -117,7 +117,7 @@ module Xdrgen
           cpp_out.puts "return true;"
           cpp_out.puts "}"
 
-          cpp_out.puts "void\n#{name struct}::count_size(measurer& m)\n{"
+          cpp_out.puts "void\n#{name struct}::count_size(measurer& m) const\n{"
           struct.members.each do |m|
             cpp_out.puts "m.count_size(#{name m});"
           end
@@ -268,7 +268,7 @@ module Xdrgen
 
         header_out.puts "bool\nfrom_bytes(unmarshaler& u) override;\n"
         header_out.puts "bool\nto_bytes(marshaler& m) override;\n"
-        header_out.puts "void\ncount_size(measurer& m) override;\n"
+        header_out.puts "void\ncount_size(measurer& m) const override;\n"
 
         header_out.puts "public:"
         header_out.puts "bool\noperator==(xdr_abstract const& other) const override;\n"
@@ -326,12 +326,11 @@ module Xdrgen
         cpp_out.puts "return false;"
         cpp_out.puts "}"
 
-        cpp_out.puts "void\n#{name union}::count_size(measurer& m)\n{"
+        cpp_out.puts "void\n#{name union}::count_size(measurer& m) const\n{"
         cpp_out.puts "m.count_size(type_);"
         switch_for cpp_out, union, "type_" do |arm|
-          "return #{(arm.void? ? "true" : ("m.count_size(#{name arm}_)"))};"
+          "return #{(arm.void? ? "" : ("m.count_size(#{name arm}_)"))};"
         end
-        cpp_out.puts "return false;"
         cpp_out.puts "}"
 
         cpp_out.puts "bool\n#{name union}::operator==(xdr_abstract const& other_abstract) const\n{"
@@ -436,8 +435,10 @@ module Xdrgen
         cpp_out.puts "#include \"xdr_generated.h\""
         cpp_out.puts "#include \"lib/xdrpp/src/unmarshaler.h\""
         cpp_out.puts "#include \"lib/xdrpp/src/marshaler.h\""
+        cpp_out.puts "#include \"lib/xdrpp/src/measurer.h\""
         cpp_out.puts "#include \"lib/xdrpp/src/unmarshaler.t.hpp\""
-        cpp_out.puts "#include \"lib/xdrpp/src/marshaler.t.hpp\"\n"
+        cpp_out.puts "#include \"lib/xdrpp/src/marshaler.t.hpp\""
+        cpp_out.puts "#include \"lib/xdrpp/src/measurer.t.hpp\"\n"
         cpp_out.puts "using namespace xdr;\n"
         cpp_out.puts "namespace stellar \n{\n"
       end

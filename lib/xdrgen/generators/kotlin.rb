@@ -87,6 +87,9 @@ module Xdrgen
           out.puts "}"
           out.break
 
+          render_decoder name
+          out.break
+
           render_nested_definitions struct
         end
 
@@ -109,6 +112,9 @@ module Xdrgen
               value.toXdr(stream)
           }
           EOS
+
+          out.break
+          render_decoder name
         end
         out.puts "}"
       end
@@ -123,6 +129,11 @@ module Xdrgen
               discriminant.toXdr(stream)
           }
           EOS
+
+          out.break
+          render_decoder name
+          out.break
+
           foreach_union_case union do |union_case, arm|
             render_union_case union_case, arm, union, name
           end
@@ -138,7 +149,8 @@ module Xdrgen
         out = @out
 
         out.break
-        out.puts "open class #{name_string union_case_name(union_case).downcase}#{union_case_data arm}: #{union_name}(#{type_string union.discriminant.type}.#{enum_case_name union_case_name union_case})#{arm.void? ? "" : " {"}"
+        name = name_string union_case_name(union_case).downcase
+        out.puts "open class #{name}#{union_case_data arm}: #{union_name}(#{type_string union.discriminant.type}.#{enum_case_name union_case_name union_case})#{arm.void? ? "" : " {"}"
         unless arm.void?
           out.indent do
             out.puts <<-EOS.strip_heredoc
@@ -149,6 +161,9 @@ module Xdrgen
               render_element_encode arm, arm.name
             end
             out.puts "}"
+
+            out.break
+            render_decoder name
           end
           out.puts "}"
         end
@@ -355,6 +370,11 @@ module Xdrgen
 
       def name_string(name)
         name.camelize
+      end
+
+      def render_decoder(name)
+        out = @out
+        out.puts "companion object Decoder: XdrDecodable<#{name}> by ReflectiveXdrDecoder.wrapType()"
       end
     end
   end

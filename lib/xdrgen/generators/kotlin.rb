@@ -72,6 +72,10 @@ module Xdrgen
         out.puts "open class #{name}("
         out.indent 2 do
           struct.members.each_with_index do |m, index|
+            case m.declaration
+            when AST::Declarations::Optional ;
+              out.puts "@XdrOptionalField"
+            end
             out.puts "var #{m.name}: #{decl_string m.declaration}#{(index == struct.members.size - 1) ? "" : ","}"
           end
         end
@@ -122,7 +126,7 @@ module Xdrgen
       def render_union(union, name)
         out = @out
 
-        out.puts "abstract class #{name}(val discriminant: #{type_string union.discriminant.type}): XdrEncodable {"
+        out.puts "abstract class #{name}(@XdrDiscriminantField val discriminant: #{type_string union.discriminant.type}): XdrEncodable {"
         out.indent do
           out.puts <<-EOS.strip_heredoc
           override fun toXdr(stream: XdrDataOutputStream) {

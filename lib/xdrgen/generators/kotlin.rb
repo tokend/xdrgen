@@ -126,7 +126,7 @@ module Xdrgen
       def render_union(union, name)
         out = @out
 
-        out.puts "abstract class #{name}(val discriminant: #{type_string union.discriminant.type}): XdrEncodable {"
+        out.puts "abstract class #{name}(@XdrDiscriminantField val discriminant: #{type_string union.discriminant.type}): XdrEncodable {"
         out.indent do
           out.puts <<-EOS.strip_heredoc
           override fun toXdr(stream: XdrDataOutputStream) {

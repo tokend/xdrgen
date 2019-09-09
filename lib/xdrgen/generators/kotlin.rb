@@ -72,6 +72,10 @@ module Xdrgen
         out.puts "open class #{name}("
         out.indent 2 do
           struct.members.each_with_index do |m, index|
+            case m.declaration
+            when AST::Declarations::Optional ;
+              out.puts "@XdrOptionalField"
+            end
             out.puts "var #{m.name}: #{decl_string m.declaration}#{(index == struct.members.size - 1) ? "" : ","}"
           end
         end

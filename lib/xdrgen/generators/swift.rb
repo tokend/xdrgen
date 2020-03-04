@@ -25,7 +25,7 @@ module Xdrgen
           out = @output.open file_path
           render_top_matter out
 
-          render_element "public struct", defn, ": XDREncodable", out do
+          render_element "public struct", defn, ": XDRCodable", out do
             render_struct defn, out
             render_nested_definitions defn, out
           end
@@ -60,7 +60,7 @@ module Xdrgen
           case ndefn
           when AST::Definitions::Struct ;
             name = name ndefn
-            out.puts "public struct #{name}: XDREncodable {"
+            out.puts "public struct #{name}: XDRCodable {"
             out.indent do
               render_struct ndefn, out
               out.break
@@ -123,6 +123,39 @@ module Xdrgen
 
           out.break
           out.puts "return xdr"
+        end
+        out.puts "}"
+        out.break
+
+        out.break
+        out.puts "public init(xdrData: inout Data) throws {"
+        out.indent do
+          struct.members.each do |m|
+            case m.declaration
+            when AST::Declarations::Optional ;
+              out.puts <<-EOS.strip_heredoc
+              if (try Bool(xdrData: &xdrData)) {
+                self.#{m.name} = try #{type_string m.declaration.type}(xdrData: &xdrData)
+              } else {
+                self.#{m.name} = nil
+              }
+              EOS
+            when AST::Declarations::Array ;
+              if m.declaration.fixed?
+                out.puts "self.#{m.name} = try #{decl_string m.declaration}(xdrData: &xdrData)"
+              else
+                out.puts <<-EOS.strip_heredoc
+                let length#{m.name} = try Int32(xdrData: &xdrData)
+                self.#{m.name} = #{decl_string m.declaration}()
+                for _ in 1...length#{m.name} {
+                  self.#{m.name}.append(try #{type_string m.declaration.type}(xdrData: &xdrData))
+                }
+                EOS
+              end
+            else
+              out.puts "self.#{m.name} = try #{decl_string m.declaration}(xdrData: &xdrData)"
+            end
+          end
         end
         out.puts "}"
         out.break
@@ -192,6 +225,59 @@ module Xdrgen
           return xdr
         }
         EOS
+
+        out.break
+
+        out.puts <<-EOS.strip_heredoc
+        public init(xdrData: inout Data) throws {
+          let discriminant = try Int32(xdrData: &xdrData)
+
+          switch discriminant {
+        EOS
+        out.indent do
+          foreach_union_case union do |union_case, arm|
+            if arm.void?
+              out.puts "case #{type_string union.discriminant.type}.#{union_case_name union_case}.rawValue: self = .#{union_case_name union_case}()"
+            else
+              out.puts "case #{type_string union.discriminant.type}.#{union_case_name union_case}.rawValue:"
+              out.indent do
+                m = arm
+                case m.declaration
+                when AST::Declarations::Optional ;
+                  out.puts <<-EOS.strip_heredoc
+                  var data #{type_string m.declaration.type}
+                  if (try Bool(xdrData: &xdrData)) {
+                    data = try #{type_string m.declaration.type}(xdrData: &xdrData)
+                  } else {
+                    data = nil
+                  }
+                  EOS
+                when AST::Declarations::Array ;
+                  if m.declaration.fixed?
+                    out.puts "data = try #{decl_string m.declaration}(xdrData: &xdrData)"
+                  else
+                    out.puts <<-EOS.strip_heredoc
+                    let length#{m.name} = try Int32(xdrData: &xdrData)
+                    var data = #{decl_string m.declaration}()
+                    for _ in 1...length#{m.name} {
+                      data.append(try #{type_string m.declaration.type}(xdrData: &xdrData))
+                    }
+                    EOS
+                  end
+                else
+                  out.puts "let data = try #{decl_string m.declaration}(xdrData: &xdrData)"
+                end
+                out.puts "self = .#{union_case_name union_case}(data)"
+              end
+            end
+          end
+        end
+        out.puts <<-EOS.strip_heredoc
+          default:
+            throw XDRErrors.unknownEnumCase
+          }
+        }
+        EOS
       end
 
       def foreach_union_case(union)
@@ -220,6 +306,31 @@ module Xdrgen
         name = name_string typedef.name
         unless @already_rendered.include? name
           out.puts "public typealias #{name} = #{decl_string typedef.declaration}"
+        end
+      end
+
+      def render_fixed_size_array_type(decl)
+        name = "XDRArrayFixed#{decl.size}"
+
+        unless @already_rendered.include? name
+          @already_rendered << name
+
+          out = @output.open "#{name}.#{@file_extension}"
+          render_top_matter out
+          out.puts <<-EOS.strip_heredoc
+          /// Fixed length byte array
+          public struct #{name}<WrappedElement: XDRCodable>: XDRArrayFixed {
+            public typealias Element = WrappedElement
+
+            public static var length: Int { return #{decl.size} }
+
+            public var wrapped: [WrappedElement]
+
+            public init() {
+                self.wrapped = [WrappedElement]()
+            }
+          }
+          EOS
         end
       end
 
@@ -294,7 +405,8 @@ module Xdrgen
           "String"
         when AST::Declarations::Array ;
           if decl.fixed?
-            "XDRArrayFixed<#{type_string decl.type}>"
+            render_fixed_size_array_type decl
+            "XDRArrayFixed#{decl.size}<#{type_string decl.type}>"
           else
             "[#{type_string decl.type}]"
           end

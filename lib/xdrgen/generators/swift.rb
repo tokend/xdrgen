@@ -181,7 +181,11 @@ module Xdrgen
 
       def render_union(union, out)
         foreach_union_case union do |union_case, arm|
-          out.puts "case #{union_case_name union_case}(#{decl_string arm.declaration})"
+          if arm.void?
+            out.puts "case #{union_case_name union_case}"
+          else
+            out.puts "case #{union_case_name union_case}(#{decl_string arm.declaration})"
+          end
         end
 
         out.break
@@ -213,7 +217,7 @@ module Xdrgen
         out.indent do
           foreach_union_case union do |union_case, arm|
             if arm.void?
-              out.puts "case .#{union_case_name union_case}(): xdr.append(Data())"
+              out.puts "case .#{union_case_name union_case}: xdr.append(Data())"
             else
               out.puts "case .#{union_case_name union_case}(let data): xdr.append(data.toXDR())"
             end
@@ -237,7 +241,7 @@ module Xdrgen
         out.indent do
           foreach_union_case union do |union_case, arm|
             if arm.void?
-              out.puts "case #{type_string union.discriminant.type}.#{union_case_name union_case}.rawValue: self = .#{union_case_name union_case}()"
+              out.puts "case #{type_string union.discriminant.type}.#{union_case_name union_case}.rawValue: self = .#{union_case_name union_case}"
             else
               out.puts "case #{type_string union.discriminant.type}.#{union_case_name union_case}.rawValue:"
               out.indent do

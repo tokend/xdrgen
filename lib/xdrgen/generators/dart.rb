@@ -1,111 +1,15 @@
 module Xdrgen
   module Generators
-    class TreeNode
-      attr_accessor :children, :value
-
-      def initialize(v)
-        @value = v
-        @children = []
-      end
-    end
-
-    class Node
-      attr_accessor :val, :next, :prev
-
-      def initialize(val)
-        @val = val
-        @next = nil
-        @prev = nil
-      end
-    end
-
-    class DoublyLinkedList
-      attr_accessor :head, :tail, :length
-
-      def initialize()
-        @head = nil
-        @tail = nil
-        @length = 0
-      end
-
-      def push(val)
-        new_node = Node.new(val)
-        if @length == 0
-          @head = new_node
-          @tail = new_node
-        else
-          @tail.next = new_node
-          new_node.prev = @tail
-          @tail = new_node
-        end
-        @length += 1
-        return self
-      end
-
-      def pop
-        return nil if !@head
-        old_tail = @tail
-        if @length == 1
-          @head = nil
-          @tail = nil
-        else
-          @tail = old_tail.prev
-          new_tail.next = nil
-          old_tail.prev = nil
-        end
-        @length -= 1
-        return old_tail
-      end
-
-      def shift
-        return nil if !@head
-        old_head = @head
-        if @length == 1
-          @head = nil
-          @tail = nil
-        else
-          @head = old_head.next
-          @head.prev = nil
-          old_head.next = nil
-        end
-        @length -= 1
-        return old_head
-      end
-
-      def unshift(val)
-        new_node = Node.new(val)
-        if @length == 0
-          @head = new_node
-          @tail = new_node
-        else
-          @head.prev = new_node
-          new_node.next = @head
-          @head = new_node
-        end
-        @length += 1
-        return self
-      end
-    end
-
     class Dart < Xdrgen::Generators::Base
       def generate
         @already_rendered = []
-        @existing_xdrs = []
-        @existing_classes = []
-        @tree = TreeNode.new("")
-        @tree.children << TreeNode.new("Test-0")
-        @current_subtree = @tree.children[0]
-
-        @current_subtree.children << TreeNode.new("test 1")
-        @current_subtree.children << TreeNode.new("test 2")
-
         @file_extension = "dart"
 
         path = "XdrTypes.#{@file_extension}"
         @out = @output.open path
-        #render_top_matter @out
+        render_top_matter @out
 
-        #render_definitions @top
+        render_definitions @top
       end
 
       def render_definitions(node)
@@ -115,7 +19,6 @@ module Xdrgen
 
       def render_definition(defn)
         name = name_string defn.name
-        @existing_classes << name
 
         case defn
         when AST::Definitions::Struct
@@ -150,12 +53,9 @@ module Xdrgen
       end
 
       def render_nested_definitions(defn, name, struct_name = "")
-        name = name_string defn.name
-
         return unless defn.respond_to? :nested_definitions
         defn.nested_definitions.each { |ndefn|
           name = name ndefn
-          get_class_name ndefn
 
           case ndefn
           when AST::Definitions::Struct
@@ -165,13 +65,10 @@ module Xdrgen
               struct_name = "#{name_string name}#{name_string ndefn.name}"
               render_struct ndefn, struct_name, out
               out.puts "}"
-              @existing_classes << "#{name}#{ndefn.name}"
 
               render_nested_definitions ndefn, ndefn.name, struct_name = ""
             end
           when AST::Definitions::Enum
-            @existing_classes << name
-
             render_enum ndefn, name
 
             # render_element defn do
@@ -180,13 +77,11 @@ module Xdrgen
           when AST::Definitions::Union
             struct_name = "#{name_string name}#{name_string ndefn.name}"
             render_union ndefn, name, struct_name
-            @existing_classes << name
+
             # render_element defn do
             #   render_union defn, name
             # end
           when AST::Definitions::Typedef
-            @existing_classes << name
-
             render_typedef ndefn, name
 
             # render_element defn do
@@ -275,7 +170,7 @@ module Xdrgen
         out.puts "}"
 
         foreach_union_case union do |union_case, arm|
-          render_union_case union_case, arm, union, name, struct_name
+          render_union_case union_case, arm, union, name, struct_name, name
         end
 
         render_nested_definitions union, struct_name
@@ -283,20 +178,20 @@ module Xdrgen
         out.break
       end
 
-      def render_union_case(union_case, arm, union, union_name, struct_name)
+      def render_union_case(union_case, arm, union, union_name, struct_name, parent_name)
         out = @out
 
         out.break
         name = name_string union_case_name(union_case).downcase
         out.puts "class #{name_string union_name}#{name_string name} extends #{union_name} {"
         out.indent do
-          out.puts "#{union_name}#{name}(#{union_case_data arm, struct_name}) : super(#{type_string union.discriminant.type}(#{type_string union.discriminant.type}.#{enum_case_name union_case_name union_case}));"
+          out.puts "#{union_name}#{name}(#{union_case_data arm, struct_name, union}) : super(#{type_string union.discriminant.type}(#{type_string union.discriminant.type}.#{enum_case_name union_case_name union_case}));"
         end
         unless arm.void?
           out.indent do
             #out.puts "#{name}(#{type_string union.discriminant.type}.#{enum_case_name union_case_name union_case})"
 
-            out.puts "late #{union_case_data arm, struct_name};"
+            out.puts "late #{union_case_data arm, struct_name, parent_name};"
 
             out.puts <<-EOS.strip_heredoc
                 @override toXdr(XdrDataOutputStream stream) {
@@ -312,18 +207,18 @@ module Xdrgen
         out.puts "}"
       end
 
-      def union_case_data(arm, struct_name)
+      def union_case_data(arm, struct_name, parent_name)
         if arm.void?
           ""
         else
           is_empty = struct_name.empty?
-          exists = @existing_classes.include? "#{decl_string arm.declaration}" || arm.is_a?(AST::Definitions::Typedef)
+          "#{parent_name}#{decl_string arm.declaration} #{arm.name}"
 
-          if exists
-            "#{decl_string arm.declaration} #{arm.name}"
-          else
-            "#{decl_string arm.declaration}#{name_string arm.name} #{arm.name}"
-          end
+          #   if is_empty
+          #     "#{decl_string arm.declaration} #{arm.name}"
+          #   else
+          #     "#{name_string struct_name}#{decl_string arm.declaration} #{arm.name}"
+          #   end
         end
       end
 
@@ -405,14 +300,6 @@ module Xdrgen
             out.puts "#{name}.toXdr(stream);"
           end
         end
-      end
-
-      def get_class_name(defn)
-        class_name = defn.name
-        unless defn.parent_defn != nil
-          class_name += ndefn.parent_defn
-        end
-        puts class_name
       end
 
       def render_top_matter(out)

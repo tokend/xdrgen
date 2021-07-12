@@ -10,6 +10,7 @@ module Xdrgen::Generators
   autoload :Swift
   autoload :Kotlin
   autoload :Dart
+  autoload :Bart
   autoload :Openapi
 
   def self.for_language(language)

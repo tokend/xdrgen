@@ -3,9 +3,11 @@ module Xdrgen
     class Dart < Xdrgen::Generators::Base
       def generate
         @already_rendered = []
+        @existing_classes = []
+
         @file_extension = "dart"
 
-        path = "XdrTypes.#{@file_extension}"
+        path = "xdr_types.#{@file_extension}"
         @out = @output.open path
         render_top_matter @out
 
@@ -28,41 +30,34 @@ module Xdrgen
           render_element "class", defn, "", " extends XdrEncodable ", out do
             render_struct defn, name, out
             out.puts "}"
+            @existing_classes << name
 
             render_nested_definitions defn, defn.name
           end
         when AST::Definitions::Enum
           render_enum defn, name
-
-          # render_element defn do
-          #   render_enum defn, name
-          # end
         when AST::Definitions::Union
           render_union defn, name, ""
-
-          # render_element defn do
-          #   render_union defn, name
-          # end
+          @existing_classes << name
         when AST::Definitions::Typedef
           render_typedef defn, name
-
-          # render_element defn do
-          #   render_typedef defn, name
-          # end
         end
       end
 
       def render_nested_definitions(defn, name, struct_name = "")
         return unless defn.respond_to? :nested_definitions
+        puts "Render-nested: #{name ndefn}}"
+
         defn.nested_definitions.each { |ndefn|
           name = name ndefn
 
           case ndefn
           when AST::Definitions::Struct
-            puts "Render-nested: #{ndefn.name}"
             out = @out
             render_element "class", ndefn, name, " extends XdrEncodable ", out do
               struct_name = "#{name_string name}#{name_string ndefn.name}"
+              @existing_classes << struct_name
+
               render_struct ndefn, struct_name, out
               out.puts "}"
 
@@ -70,34 +65,26 @@ module Xdrgen
             end
           when AST::Definitions::Enum
             render_enum ndefn, name
-
-            # render_element defn do
-            #   render_enum defn, name
-            # end
           when AST::Definitions::Union
             struct_name = "#{name_string name}#{name_string ndefn.name}"
+            @existing_classes << struct_name
             render_union ndefn, name, struct_name
-
-            # render_element defn do
-            #   render_union defn, name
-            # end
           when AST::Definitions::Typedef
             render_typedef ndefn, name
-
-            # render_element defn do
-            #   render_typedef defn, name
-            # end
           end
         }
       end
 
       def render_element(type, element, prefix = "", post_name = "", out)
-        #out = @out
-
         name = name_string element.name
         render_source_comment element
+        full_name = "#{prefix}#{name}"
+        if @existing_classes.include? full_name
+          full_name = "#{prefix}#{name}#{name}"
+          @existing_classes << full_name
+        end
 
-        out.puts "#{type} #{prefix}#{name}#{post_name} {"
+        out.puts "#{type} #{full_name}#{post_name} {"
         out.indent do
           yield out
           out.unbreak
@@ -106,10 +93,6 @@ module Xdrgen
 
       def render_struct(struct, struct_name, out)
         out = @out
-
-        #   struct.members.each do |m|
-        #     out.puts "#{struct.name}()"
-
         out.indent do
           render_init_block(struct, struct_name)
 
@@ -122,7 +105,6 @@ module Xdrgen
           out.puts "}"
           out.break
 
-          #render_decoder name
           out.break
         end
 
@@ -137,7 +119,6 @@ module Xdrgen
           enum.members.each do |em|
             out.puts "static const #{enum_case_name em.name} = #{em.value};"
           end
-          #render_decoder name
 
           out.puts "var value;"
           out.puts "#{name}(this.value);"
@@ -148,6 +129,11 @@ module Xdrgen
       def render_union(union, name, struct_name)
         out = @out
 
+        class_name = struct_name
+        if struct_name.empty?
+          class_name = name
+        end
+
         out.puts "abstract class #{name} extends XdrEncodable {"
 
         out.indent do
@@ -155,25 +141,23 @@ module Xdrgen
           out.puts "#{name}(this.discriminant);"
 
           out.puts <<-EOS.strip_heredoc
-              @override toXdr(XdrDataOutputStream stream) {
-                  discriminant.toXdr(stream);
-              }
-              EOS
+                @override toXdr(XdrDataOutputStream stream) {
+                    discriminant.toXdr(stream);
+                }
+                EOS
 
           out.break
 
           out.break
-          #render_decoder name
-
         end
         out.unbreak
         out.puts "}"
 
         foreach_union_case union do |union_case, arm|
-          render_union_case union_case, arm, union, name, struct_name, name
+          render_union_case union_case, arm, union, name, name, name
         end
 
-        render_nested_definitions union, struct_name
+        render_nested_definitions union, name
 
         out.break
       end
@@ -181,44 +165,51 @@ module Xdrgen
       def render_union_case(union_case, arm, union, union_name, struct_name, parent_name)
         out = @out
 
+        extending_class = union_name
+        if !struct_name.empty?
+          extending_class = struct_name
+        end
         out.break
         name = name_string union_case_name(union_case).downcase
-        out.puts "class #{name_string union_name}#{name_string name} extends #{union_name} {"
+        full_name = "#{name_string union_name}#{name_string name}"
+
+        if @existing_classes.include? full_name
+          full_name = "#{name_string union_name}#{name_string name}#{name_string name}"
+        end
+        out.puts "class #{full_name} extends #{extending_class} {"
         out.indent do
-          out.puts "#{union_name}#{name}(#{union_case_data arm, struct_name, union}) : super(#{type_string union.discriminant.type}(#{type_string union.discriminant.type}.#{enum_case_name union_case_name union_case}));"
+          out.puts "#{full_name}(#{union_case_data arm, struct_name, union}) : super(#{type_string union.discriminant.type}(#{type_string union.discriminant.type}.#{enum_case_name union_case_name union_case}));"
         end
         unless arm.void?
           out.indent do
-            #out.puts "#{name}(#{type_string union.discriminant.type}.#{enum_case_name union_case_name union_case})"
-
-            out.puts "late #{union_case_data arm, struct_name, parent_name};"
+            out.puts "late #{union_case_data arm, struct_name, out};"
 
             out.puts <<-EOS.strip_heredoc
-                @override toXdr(XdrDataOutputStream stream) {
-                  super.toXdr(stream);
-                EOS
+                  @override toXdr(XdrDataOutputStream stream) {
+                    super.toXdr(stream);
+                  EOS
             out.indent do
               render_element_encode arm, arm.name
             end
             out.puts "}"
-            #render_decoder name
           end
         end
         out.puts "}"
       end
 
-      def union_case_data(arm, struct_name, parent_name)
+      def union_case_data(arm, struct_name, out)
         if arm.void?
           ""
         else
           is_empty = struct_name.empty?
-          "#{parent_name}#{decl_string arm.declaration} #{arm.name}"
 
-          #   if is_empty
-          #     "#{decl_string arm.declaration} #{arm.name}"
-          #   else
-          #     "#{name_string struct_name}#{decl_string arm.declaration} #{arm.name}"
-          #   end
+          is_nested = arm.type.is_a?(AST::Concerns::NestedDefinition)
+          is_struct = arm.type.is_a?(AST::Definitions::Struct) || arm.type.is_a?(AST::Definitions::Union)
+          if !is_not_simple arm.declaration or arm.declaration.type.is_a?(AST::Definitions::NestedUnion)
+            "#{decl_string arm.declaration} #{arm.name}"
+          else
+            "#{name arm.type}#{name_string arm.name} #{arm.name}"
+          end
         end
       end
 
@@ -272,19 +263,19 @@ module Xdrgen
                 out.puts "#{name}?.length.toXdr(stream);"
               end
               out.puts <<-EOS.strip_heredoc
-                  #{name}?.forEach((element) {
-                    element.toXdr(stream);
-                  });
-                  EOS
+                    #{name}?.forEach((element) {
+                      element.toXdr(stream);
+                    });
+                    EOS
             else
               out.puts "#{name}?.toXdr(stream);"
             end
           end
           out.puts <<-EOS.strip_heredoc
-              } else {
-                false.toXdr(stream);
-              }
-              EOS
+                } else {
+                  false.toXdr(stream);
+                }
+                EOS
         else
           case element.declaration
           when AST::Declarations::Array
@@ -292,10 +283,10 @@ module Xdrgen
               out.puts "#{name}.length.toXdr(stream);"
             end
             out.puts <<-EOS.strip_heredoc
-                  #{name}.forEach ((element) {
-                    element.toXdr(stream);
-                  });
-                EOS
+                    #{name}.forEach ((element) {
+                      element.toXdr(stream);
+                    });
+                  EOS
           else
             out.puts "#{name}.toXdr(stream);"
           end
@@ -304,11 +295,11 @@ module Xdrgen
 
       def render_top_matter(out)
         out.puts <<-EOS.strip_heredoc
-              // Automatically generated by xdrgen 
-              // DO NOT EDIT or your changes may be overwritten
-        
-              import 'utils/dependencies.dart';
-            EOS
+                // Automatically generated by xdrgen 
+                // DO NOT EDIT or your changes may be overwritten
+          
+                import 'utils/dependencies.dart';
+              EOS
         out.break
       end
 
@@ -318,16 +309,16 @@ module Xdrgen
         return if defn.is_a?(AST::Definitions::Namespace)
 
         out.puts <<-EOS.strip_heredoc
-            // === xdr source ============================================================
-    
-            EOS
+              // === xdr source ============================================================
+      
+              EOS
 
         out.puts "//  " + defn.text_value.split("\n").join("\n//  ")
 
         out.puts <<-EOS.strip_heredoc
-    
-            //  ===========================================================================
-            EOS
+      
+              //  ===========================================================================
+              EOS
       end
 
       def render_fixed_size_opaque_type(decl)
@@ -339,14 +330,14 @@ module Xdrgen
           out = @output.open "#{name}.#{@file_extension}"
           render_top_matter out
           out.puts <<-EOS.strip_heredoc
-              /// Fixed length byte array 
-              class #{name} extends XdrFixedByteArray {
-                #{name}(Uint8List wrapped) : super(wrapped);
-                
-                @override
-                int size = #{decl.size};
-              }
-              EOS
+                /// Fixed length byte array 
+                class #{name} extends XdrFixedByteArray {
+                  #{name}(Uint8List wrapped) : super(wrapped);
+                  
+                  @override
+                  int size = #{decl.size};
+                }
+                EOS
         end
 
         name
@@ -356,7 +347,19 @@ module Xdrgen
         out = @out
         out.indent do
           struct.members.each do |m|
-            out.puts "#{decl_string m.declaration} #{m.name};"
+            is_nested = m.declaration.is_a?(AST::Declarations::Simple) and (m.declaration.type.is_a?(AST::Concerns::NestedDefinition) or m.declaration.type.is_a?(AST::Typespecs::Simple))
+            is_simple = m.declaration.is_a?(AST::Declarations::Simple)
+            is_string = m.declaration.is_a?(AST::Declarations::String)
+            is_not_bool = !m.declaration.type.is_a?(AST::Typespecs::Bool) and !m.declaration.type.is_a?(AST::Typespecs::Opaque)
+            is_struct = !m.type.is_a?(AST::Identifier)
+
+            declaration = "#{decl_string m.declaration} #{m.name};"
+
+            if is_not_simple m.declaration or m.declaration.type.is_a?(AST::Definitions::NestedUnion)
+              declaration = "#{name m.type} #{m.name};"
+            end
+
+            out.puts "#{declaration}"
           end
           out.break
 
@@ -368,6 +371,54 @@ module Xdrgen
           end
           out.puts ");"
           out.break
+        end
+      end
+
+      def is_not_simple(decl)
+        case decl
+        when AST::Declarations::Opaque
+          false
+        when AST::Declarations::String
+          false
+        when AST::Declarations::Array
+          false
+        when AST::Declarations::Optional
+          is_type_not_simple decl.type
+        when AST::Declarations::Simple
+          is_type_not_simple decl.type
+        else
+          raise "Unknown declaration type: #{decl.class.name}"
+        end
+      end
+
+      def is_type_not_simple(type)
+        case type
+        when AST::Typespecs::Int
+          false
+        when AST::Typespecs::UnsignedInt
+          false
+        when AST::Typespecs::Hyper
+          false
+        when AST::Typespecs::UnsignedHyper
+          false
+        when AST::Typespecs::Float
+          raise "cannot render Float in dart"
+        when AST::Typespecs::Double
+          raise "cannot render Double in dart"
+        when AST::Typespecs::Quadruple
+          raise "cannot render Quadruple in dart"
+        when AST::Typespecs::Bool
+          false
+        when AST::Typespecs::Opaque
+          false
+        when AST::Typespecs::Simple
+          false
+        when AST::Definitions::NestedStruct
+          true
+        when AST::Definitions::NestedUnion
+          false
+        else
+          raise "Unknown typespec: #{type.class.name}"
         end
       end
 
@@ -435,11 +486,6 @@ module Xdrgen
       def name_string(name)
         name.camelize
       end
-
-      # def render_decoder(name)
-      #   out = @out
-      #   out.puts "companion object Decoder: XdrDecodable<#{name}> by ReflectiveXdrDecoder.wrapType()"
-      # end
     end
   end
 end

@@ -46,10 +46,10 @@ module Xdrgen
 
       def render_nested_definitions(defn, name, struct_name = "")
         return unless defn.respond_to? :nested_definitions
-        puts "Render-nested: #{name ndefn}}"
 
         defn.nested_definitions.each { |ndefn|
           name = name ndefn
+          puts "Render-nested: #{name ndefn}"
 
           case ndefn
           when AST::Definitions::Struct
@@ -120,8 +120,15 @@ module Xdrgen
             out.puts "static const #{enum_case_name em.name} = #{em.value};"
           end
 
-          out.puts "var value;"
+          out.puts "int value;"
           out.puts "#{name}(this.value);"
+          out.puts <<-EOS.strip_heredoc
+          @override toXdr(XdrDataOutputStream stream) {
+            value.toXdr(stream);
+          }
+          EOS
+
+          out.break
         end
         out.puts "}"
       end
@@ -178,7 +185,8 @@ module Xdrgen
         end
         out.puts "class #{full_name} extends #{extending_class} {"
         out.indent do
-          out.puts "#{full_name}(#{union_case_data arm, struct_name, union}) : super(#{type_string union.discriminant.type}(#{type_string union.discriminant.type}.#{enum_case_name union_case_name union_case}));"
+          constructor_parameter = arm.void? ? "" : "this.#{arm.name}"
+          out.puts "#{full_name}(#{constructor_parameter}) : super(#{type_string union.discriminant.type}(#{type_string union.discriminant.type}.#{enum_case_name union_case_name union_case}));"
         end
         unless arm.void?
           out.indent do
@@ -235,12 +243,12 @@ module Xdrgen
         out = @out
 
         unless @already_rendered.include? name
-          out.puts "typedef #{name} = #{decl_string typedef.declaration};"
+          out.puts "typedef #{name.upcase} = #{decl_string typedef.declaration};"
 
           case typedef.declaration
           when AST::Declarations::Array
             out.break
-            out.puts "extension #{name}ToXdr on #{name} {"
+            out.puts "extension #{name}ToXdr on #{name.upcase} {"
             out.puts "toXdr(XdrDataOutputStream stream) {"
             out.indent do
               render_element_encode typedef, "this"
@@ -347,13 +355,12 @@ module Xdrgen
         out = @out
         out.indent do
           struct.members.each do |m|
-            is_nested = m.declaration.is_a?(AST::Declarations::Simple) and (m.declaration.type.is_a?(AST::Concerns::NestedDefinition) or m.declaration.type.is_a?(AST::Typespecs::Simple))
-            is_simple = m.declaration.is_a?(AST::Declarations::Simple)
-            is_string = m.declaration.is_a?(AST::Declarations::String)
-            is_not_bool = !m.declaration.type.is_a?(AST::Typespecs::Bool) and !m.declaration.type.is_a?(AST::Typespecs::Opaque)
-            is_struct = !m.type.is_a?(AST::Identifier)
-
             declaration = "#{decl_string m.declaration} #{m.name};"
+
+            # if (m.declaration.is_a?(AST::Declarations::Simple) or m.declaration.is_a?(AST::Declarations::Optional)) and m.declaration.type.is_a?(AST::Typespecs::Simple) and m.declaration.type.resolved_type.is_a?(AST::Definitions::Typedef)
+            #   declaration = "#{(decl_string m.declaration).upcase} #{m.name};"
+            #   puts "GREAT !!!! #{(decl_string m.declaration).upcase} ---> #{m.declaration.type.resolved_type}"
+            # end
 
             if is_not_simple m.declaration or m.declaration.type.is_a?(AST::Definitions::NestedUnion)
               declaration = "#{name m.type} #{m.name};"
@@ -450,9 +457,9 @@ module Xdrgen
         when AST::Typespecs::UnsignedInt
           "int"
         when AST::Typespecs::Hyper
-          "int"
+          "Int64"
         when AST::Typespecs::UnsignedHyper
-          "int"
+          "Int64"
         when AST::Typespecs::Float
           raise "cannot render Float in dart"
         when AST::Typespecs::Double
@@ -464,7 +471,11 @@ module Xdrgen
         when AST::Typespecs::Opaque
           "Uint8List"
         when AST::Typespecs::Simple
-          "#{name type.resolved_type}"
+          if type.resolved_type.is_a?(AST::Definitions::Typedef)
+            "#{(name type.resolved_type).upcase}"
+          else
+            "#{name type.resolved_type}"
+          end
         when AST::Concerns::NestedDefinition
           name type
         else

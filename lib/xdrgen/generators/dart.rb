@@ -120,11 +120,19 @@ module Xdrgen
             out.puts "static const #{enum_case_name em.name} = #{em.value};"
           end
 
-          out.puts "int value;"
+          out.puts "late int value;"
           out.puts "#{name}(this.value);"
           out.puts <<-EOS.strip_heredoc
           @override toXdr(XdrDataOutputStream stream) {
             value.toXdr(stream);
+          }
+          EOS
+
+          out.break
+
+          out.puts <<-EOS.strip_heredoc
+          #{name}.fromXdr(XdrDataInputStream stream) {
+            this.value = intFromXdr(stream);
           }
           EOS
 
@@ -144,7 +152,7 @@ module Xdrgen
         out.puts "abstract class #{name} extends XdrEncodable {"
 
         out.indent do
-          out.puts "#{type_string union.discriminant.type} discriminant;"
+          out.puts "late #{type_string union.discriminant.type} discriminant;"
           out.puts "#{name}(this.discriminant);"
 
           out.puts <<-EOS.strip_heredoc
@@ -153,13 +161,39 @@ module Xdrgen
                 }
                 EOS
 
-          out.break
 
           out.break
+
+          out.unbreak
+          out.puts <<-EOS.strip_heredoc
+                static #{name} fromXdr(XdrDataInputStream stream) {
+                var discriminant = intFromXdr(stream);
+  
+                switch (discriminant) {
+                   
+                EOS
+          out.break
+          out.unbreak
+
+          out.indent 2 do
+            render_union_cases_from_xdr union, name
+            out.puts "}"
+
+            out.break
+          end
+
+          default_case = union.arms[0].cases[0]
+          case_name = name_string union_case_name(default_case).downcase
+          full_name = "#{name_string name}#{name_string case_name}"
+          if @existing_classes.include? full_name
+            full_name = "#{name_string name}#{name_string case_name}#{name_string case_name}"
+          end
+          out.puts "return #{full_name}.fromXdr(stream);"
+
+          out.puts "}"
         end
-        out.unbreak
+        
         out.puts "}"
-
         foreach_union_case union do |union_case, arm|
           render_union_case union_case, arm, union, name, name, name
         end
@@ -167,6 +201,24 @@ module Xdrgen
         render_nested_definitions union, name
 
         out.break
+      end
+
+      def render_union_cases_from_xdr(union, union_name)
+        @out.unbreak
+        foreach_union_case union do |union_case, arm|
+          out = @out
+          out.puts "case #{type_string union.discriminant.type}.#{enum_case_name union_case_name union_case}:"
+          out.indent do 
+            name = name_string union_case_name(union_case).downcase
+            full_name = "#{name_string union_name}#{name_string name}"
+
+            if @existing_classes.include? full_name
+              full_name = "#{name_string union_name}#{name_string name}#{name_string name}"
+            end
+            out.puts "return #{full_name}.fromXdr(stream);"
+          end
+        end
+        @out.break
       end
 
       def render_union_case(union_case, arm, union, union_name, struct_name, parent_name)
@@ -190,7 +242,7 @@ module Xdrgen
         end
         unless arm.void?
           out.indent do
-            out.puts "late #{union_case_data arm, struct_name, out};"
+            out.puts "late #{union_case_data arm, struct_name, out} #{arm.name};"
 
             out.puts <<-EOS.strip_heredoc
                   @override toXdr(XdrDataOutputStream stream) {
@@ -200,23 +252,43 @@ module Xdrgen
               render_element_encode arm, arm.name
             end
             out.puts "}"
+
           end
+        end
+        out.indent do
+          out.puts "#{full_name}.fromXdr(XdrDataInputStream stream): super(#{type_string union.discriminant.type}(#{type_string union.discriminant.type}.#{enum_case_name union_case_name union_case})){"
+            out.indent do
+              if arm.void? == false
+                is_simple = arm.declaration.is_a?(AST::Declarations::Simple) or arm.declaration.is_a?(AST::Declarations::Optional)
+
+                if is_simple_from_xdr arm.declaration
+                  out.puts "var length = 0;"
+                  if arm.declaration.is_a?(AST::Declarations::Array)
+
+                    out.puts from_xdr arm.declaration, arm, false
+                  else
+                    out.puts from_xdr arm.declaration, arm
+                  end
+                else 
+                  out.puts "this.#{arm.name} = #{union_case_data arm, struct_name, out}.fromXdr(stream);"
+                end
+              end
+            end
+            out.puts "}"
         end
         out.puts "}"
       end
 
-      def union_case_data(arm, struct_name, out)
-        if arm.void?
+      def union_case_data(arm, struct_name, oute)
+        if ((arm.void?))
           ""
         else
-          is_empty = struct_name.empty?
-
           is_nested = arm.type.is_a?(AST::Concerns::NestedDefinition)
           is_struct = arm.type.is_a?(AST::Definitions::Struct) || arm.type.is_a?(AST::Definitions::Union)
           if !is_not_simple arm.declaration or arm.declaration.type.is_a?(AST::Definitions::NestedUnion)
-            "#{decl_string arm.declaration} #{arm.name}"
+            "#{decl_string arm.declaration}"
           else
-            "#{name arm.type}#{name_string arm.name} #{arm.name}"
+            "#{name arm.type}#{name_string arm.name}"
           end
         end
       end
@@ -355,15 +427,10 @@ module Xdrgen
         out = @out
         out.indent do
           struct.members.each do |m|
-            declaration = "#{decl_string m.declaration} #{m.name};"
-
-            # if (m.declaration.is_a?(AST::Declarations::Simple) or m.declaration.is_a?(AST::Declarations::Optional)) and m.declaration.type.is_a?(AST::Typespecs::Simple) and m.declaration.type.resolved_type.is_a?(AST::Definitions::Typedef)
-            #   declaration = "#{(decl_string m.declaration).upcase} #{m.name};"
-            #   puts "GREAT !!!! #{(decl_string m.declaration).upcase} ---> #{m.declaration.type.resolved_type}"
-            # end
+            declaration = "late #{decl_string m.declaration} #{m.name};"
 
             if is_not_simple m.declaration or m.declaration.type.is_a?(AST::Definitions::NestedUnion)
-              declaration = "#{name m.type} #{m.name};"
+              declaration = "late #{name m.type} #{m.name};"
             end
 
             out.puts "#{declaration}"
@@ -378,6 +445,176 @@ module Xdrgen
           end
           out.puts ");"
           out.break
+
+          out.puts "#{name_string name}.fromXdr(XdrDataInputStream stream) {"
+          out.puts "var length = 0;"
+
+          struct.members.each do |m|
+            out.indent do
+              if m.declaration.is_a?(AST::Declarations::Array)
+                out.puts from_xdr m.declaration, m, false
+              elsif m.declaration.is_a?(AST::Declarations::Optional)
+                out.puts <<-EOS.strip_heredoc
+                if (boolFromXdr(stream)) {
+                  #{from_xdr m.declaration, m}
+                } else {
+                  this.#{m.name} = null;
+                }
+                EOS
+
+              else
+                out.puts from_xdr m.declaration, m
+              end
+            end
+          end
+          out.puts "}"
+
+          out.break
+        end
+      end
+
+      def from_xdr(decl, source, with_declaration = true)
+        declaration = "this.#{source.name} = "
+        delimiter = ";"
+
+        if !with_declaration
+          declaration = ""
+          delimiter = ""
+        end
+
+        case decl
+        when AST::Declarations::Opaque
+          if decl.fixed? 
+            if with_declaration 
+              if !source.declaration.is_a?(AST::Declarations::Array) 
+                constructor = "#{decl_string source.declaration}"
+                if constructor[constructor.length - 1] == '?'
+                  constructor = constructor[0..constructor.length - 2]
+                end
+                "#{declaration}#{constructor}.fromXdr(stream)#{delimiter}"
+              end 
+            else
+              "#{declaration}#{(name source.type.resolved_type).upcase}.fromXdr(stream)#{delimiter}"
+            end
+          elsif decl.fixed? and source.declaration.is_a?(AST::Declarations::Array)
+            "#{declaration}#{type_string source.declaration.type}(opaqueFromXdr(stream))#{delimiter}"
+          else
+            "#{declaration}opaqueFromXdr(stream)#{delimiter}"
+          end
+        when AST::Declarations::String
+          "#{declaration}stringFromXdr(stream)#{delimiter}"
+        when AST::Declarations::Array
+          <<-EOS.strip_heredoc
+                length = intFromXdr(stream);
+                #{source.name} = <#{type_string decl.type}>[];
+                while (length > 0 ) {
+                  #{source.name}.add(#{from_xdr_simple decl.type, decl, false});
+                  length --;
+                }
+                
+                EOS
+        when AST::Declarations::Optional
+          from_xdr_simple decl.type, source, with_declaration
+        when AST::Declarations::Simple
+          from_xdr_simple decl.type, source, with_declaration
+        else
+          raise "Unknown declaration type: #{decl.class.name}"
+        end
+      end
+
+      def from_xdr_simple(type, source, with_declaration = true)
+        decl = "this.#{source.name} = "
+        delimiter = ";"
+        if !with_declaration
+          decl = ""
+          delimiter = ""
+        end
+
+        case type
+        when AST::Typespecs::Int
+          "#{decl}intFromXdr(stream)#{delimiter}"
+        when AST::Typespecs::UnsignedInt
+          "#{decl}intFromXdr(stream)#{delimiter}"
+        when AST::Typespecs::Hyper
+          "#{decl}longFromXdr(stream)#{delimiter}"
+        when AST::Typespecs::UnsignedHyper
+          "#{decl}longFromXdr(stream)#{delimiter}"
+        when AST::Typespecs::Float
+          raise "cannot render Float in dart"
+        when AST::Typespecs::Double
+          raise "cannot render Double in dart"
+        when AST::Typespecs::Quadruple
+          raise "cannot render Quadruple in dart"
+        when AST::Typespecs::Bool
+          "#{decl}boolFromXdr(stream)#{delimiter}"
+        when AST::Typespecs::Opaque
+          "#{decl}opaqueFromXdr (stream)#{delimiter}"
+
+        when AST::Typespecs::Simple
+          if type.resolved_type.is_a?(AST::Definitions::Typedef)
+            from_xdr type.resolved_type.declaration, source, with_declaration
+          else
+            if type.resolved_type.is_a?(AST::Definitions::Union)
+              "#{decl}#{name type}.fromXdr(stream)#{delimiter}"
+            else
+              "#{decl}#{name type.resolved_type}.fromXdr(stream)#{delimiter}"
+            end
+          end
+        when AST::Concerns::NestedDefinition
+          "#{decl}#{name type}.fromXdr(stream)#{delimiter}"
+        else
+          raise "Unknown typespec: #{type.class.name}"
+        end
+      end
+
+      def is_simple_from_xdr(decl)
+        case decl
+        when AST::Declarations::Opaque
+          true
+        when AST::Declarations::String
+          true
+        when AST::Declarations::Array
+          true
+        when AST::Declarations::Optional
+          is_simple_from_xdr_type decl.type
+        when AST::Declarations::Simple
+          is_simple_from_xdr_type decl.type
+        else
+          raise "Unknown declaration type: #{decl.class.name}"
+        end
+      end
+
+      def is_simple_from_xdr_type(type)
+        case type
+        when AST::Typespecs::Int
+          true
+        when AST::Typespecs::UnsignedInt
+          true
+        when AST::Typespecs::Hyper
+          true
+        when AST::Typespecs::UnsignedHyper
+          true
+        when AST::Typespecs::Float
+          raise "cannot render Float in dart"
+        when AST::Typespecs::Double
+          raise "cannot render Double in dart"
+        when AST::Typespecs::Quadruple
+          raise "cannot render Quadruple in dart"
+        when AST::Typespecs::Bool
+          true
+        when AST::Typespecs::Opaque
+          true 
+
+        when AST::Typespecs::Simple
+          if type.resolved_type.is_a?(AST::Definitions::Typedef)
+            true
+          else
+            false
+          end
+        when AST::Concerns::NestedDefinition
+          false
+        else
+          raise "Unknown typespec: #{type.class.name}"
         end
       end
 
